@@ -1,0 +1,18 @@
+# Job metadata and reconciliation contract for J00_mock
+# J00_mock 作业元数据与对账契约声明
+
+job_id: "J00_mock"
+name: "mock_policy_reconciliation"
+expected_path: "IR"
+primary_keys: ["IDpol"]
+columns:
+  - name: "IDpol"
+    type: "BIGINT"
+    compare_mode: "exact"
+  - name: "ClaimNb"
+    type: "INT"
+    compare_mode: "exact"
+  - name: "EarnedPremium"
+    type: "FLOAT"
+    compare_mode: "tolerance"
+    abs_tolerance: 1.0e-9
