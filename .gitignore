@@ -50,6 +50,8 @@ data/silver/*
 !data/silver/.gitkeep
 data/gold/*
 !data/gold/.gitkeep
+data/quarantine/*
+!data/quarantine/.gitkeep
 data/synthetic/*
 !data/synthetic/.gitkeep
 

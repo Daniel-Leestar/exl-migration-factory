@@ -93,3 +93,4 @@ flowchart TD
 - **Silver 清洗层**: 强制执行声明式契约约束、边界清洗、空值置换及 SCD2 缓慢变化维追踪。
 - **Gold**: Production tier housing actuarial triangles and executive KPIs; guarded by deployment quality gates.
 - **Gold 业务层**: 仅允许状态为 `Verified` 或 `Tested` 且获得人工审计签署的作业发布入库。
+
