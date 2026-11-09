@@ -61,3 +61,4 @@ def run_job(spark: Any) -> Any:
         df["ClaimNb"] = df["ClaimNb"].astype("int32")
         df["EarnedPremium"] = df["EarnedPremium"].astype("float64")
         return df
+

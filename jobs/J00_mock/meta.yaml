@@ -16,3 +16,4 @@ columns:
     type: "FLOAT"
     compare_mode: "tolerance"
     abs_tolerance: 1.0e-9
+

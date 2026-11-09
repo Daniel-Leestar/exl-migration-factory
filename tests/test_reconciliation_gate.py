@@ -381,3 +381,4 @@ def test_reconciliation_negative_gate_blocks_mismatches():
     assert not report["row_count_check"]["passed"]
     assert report["record_parity_check"]["missing_in_spark"] == 1
     assert report["record_parity_check"]["mismatched_rows"] >= 1
+
