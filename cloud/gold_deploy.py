@@ -170,3 +170,4 @@ if __name__ == "__main__":
     print("Evaluating Gold deployment quality gates / 评估 Gold 部署质量门禁...")
     results = run_deployment_pipeline()
     print(f"Summary / 总结: Approved={results['approved']}, Rejected={results['rejected']}")
+
