@@ -78,3 +78,4 @@ pytest tests/ -v
 ```bash
 streamlit run ui/app.py
 ```
+

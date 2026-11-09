@@ -1,4 +1,4 @@
-# Python
+# Python build artifacts and bytecode / Python 编译产物与字节码
 __pycache__/
 *.py[cod]
 *$py.class
@@ -20,19 +20,19 @@ wheels/
 .installed.cfg
 *.egg
 
-# Virtual Environment
+# Virtual Environment / 虚拟环境
 .env
 .venv
 env/
 venv/
 ENV/
 
-# Testing & Coverage
+# Testing & Coverage / 测试与覆盖率报告
 .pytest_cache/
 .coverage
 htmlcov/
 
-# IDE & OS
+# IDE & OS specific files / IDE 与操作系统临时文件
 .idea/
 .vscode/
 *.swp
@@ -41,7 +41,7 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Data & Lakehouse
+# Data & Lakehouse storage directories / 数据湖仓存储物理目录
 data/raw/*
 !data/raw/.gitkeep
 data/bronze/*
@@ -53,13 +53,14 @@ data/gold/*
 data/synthetic/*
 !data/synthetic/.gitkeep
 
-# Parquet files (Ignore large/temporary parquets, but allow oracle outputs in jobs/)
+# Parquet files: ignore large/temporary parquets, keep oracle ground truth in jobs/
+# Parquet 文件: 忽略大体积临时数据，保留 jobs/ 目录下的基准对账标准答案
 *.parquet
 !jobs/**/*.parquet
 
-# Delta Lake logs
+# Delta Lake transaction logs / Delta Lake 事务日志
 _delta_log/
 
-# Temporary / Scratch
+# Temporary scratch files / 临时暂存文件
 *.tmp
 spec_dump.txt
