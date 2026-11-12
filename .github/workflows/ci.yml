@@ -1,11 +1,16 @@
 name: CI Pipeline
 
-# Trigger conditions / 触发条件: Push to main/develop branches, or Pull Request targeting main
+# Trigger conditions / 触发条件:
+# 1. Push to main or develop branches / 推送至 main 或 develop 分支
+# 2. Pull Request targeting main / 针对 main 分支的 PR
+# 3. Nightly scheduled cron at 02:00 UTC / 每日凌晨 02:00 UTC 定时回归
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: '0 2 * * *'
 
 jobs:
   build-and-test:
@@ -30,17 +35,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      # Step 4: Run Smoke and Bronze ingestion tests / 运行冒烟测试与 Bronze 原始摄取测试
-      - name: Run Smoke & Bronze Ingest Tests / 运行基础测试
+      # Step 4: Run full automated pytest test suite / 运行全量自动化测试套件
+      - name: Run All Automated Pytest Suites / 运行全量 Pytest 自动化测试
         run: |
-          pytest tests/test_smoke.py tests/test_bronze_ingest.py -v
-
-      # Step 5: Run Silver layer Data Contracts validation / 运行 Silver 层数据契约测试
-      - name: Run Data Contracts Test / 运行数据契约测试
-        run: |
-          pytest tests/test_silver_contracts.py -v
-
-      # Step 6: Run Automated Dual-Track Reconciliation Gate / 运行自动化双轨对账门禁 (强门禁阻断)
-      - name: Run Reconciliation Gate / 执行双轨对账门禁
-        run: |
-          pytest tests/test_reconciliation_gate.py -v
+          pytest tests/ -v

@@ -2,160 +2,120 @@
 # EXL 自动化迁移工厂 (选题目三：智能数据平台现代化)
 
 > **EXL & UCD Data & AI Hackathon 2026**  
-> **Challenge Track / 参赛赛题:** Legacy ETL/SAS to Azure Lakehouse (遗留 ETL/SAS 向现代湖仓架构自动化迁移)  
-> **Team / 参赛战队:** UCD Team (Challenge 03)  
-> **Project Period / 冲刺周期:** 2026/11/09 - 2026/11/13  
+> **Challenge Track / 赛题:** Challenge 03: Agentic Data Platform Modernisation (Legacy ETL/SAS to Azure Lakehouse)  
+> **Team / 战队:** UCD Team (Challenge 03)  
+> **Team Members & Ownership / 团队成员与分工:**
+> - **Tianyue Li / 李天悦 (DevOps & Lakehouse Lead)**: Cloud lakehouse architecture, Bronze ingestion, Silver data contracts & quarantine routing, Gold governance admission gates, CI/CD automated reconciliation pipeline, and FinOps/SLA alerts.
+> - **Pin-Yun Kuo / 郭小妘 (Compiler Lead)**: Deterministic migration engine, `sqlglot` AST parsing, IR Schema v0, deterministic PySpark codegen, row-by-row reconciliation engine, and minimal failure shrinker.
+> - **Neeraj (Benchmarking & UI Lead)**: SQL Server 2022 Docker baseline execution, ground-truth `.parquet` export, and Streamlit interactive control plane (lineage graph, diff reports, and 1,200-job extrapolation).
 
 ---
 
-## 1. Core Philosophy / 核心设计理念
+## 1. Executive Summary & Core Philosophy / 项目概述与核心哲学
+
+Enterprises face massive hurdles modernizing legacy data estates: tens of thousands of brittle T-SQL stored procedures and SAS actuarial scripts locked in on-premise silos. Unchecked LLM code generation introduces hallucination risks, numerical drift, and compliance violations.
+
+**EXL Migration Factory** tackles this challenge across **1,200 ETL jobs and 400 SAS actuarial procedures** targeting a modern Azure Lakehouse (PySpark + Delta Lake) under a non-negotiable architectural doctrine:
 
 > ### **[Team First Principle: AI Proposes, the Compiler Disposes]**
-> Large Language Models (LLMs) never have the final say on production migration. LLM outputs must be either syntactically verified Intermediate Representations (IR) conforming to strict schemas, or PySpark scripts that pass row-by-row reconciliation against ground-truth outputs. Jobs failing automated reconciliation are permitted a maximum of 3 self-healing attempts before being degraded to `Needs review`. No defective code is ever permitted into the Gold production layer.
+> Large Language Models (LLMs) never hold autonomous write access or production authority. LLMs propose candidate transformations within strictly bounded, Pydantic-validated Intermediate Representations (IR). Every candidate PySpark script must pass automated, mathematical, record-for-record reconciliation against authoritative SQL Server ground truth (`oracle_output.parquet`). Jobs failing reconciliation are capped at 3 self-healing iterations before being safely degraded to `Needs review`. Zero defective code enters the Gold production layer.
 >
 > ### **【团队研发第一铁律：AI Proposes, the Compiler Disposes】**
-> 大语言模型（LLM）永远不拥有代码与迁移的最终决定权。LLM 产出要么是经过语法检查并符合 Schema 约束的结构化 IR，要么是必须通过严格对账测试的 PySpark 脚本。未能通过自动化对账的作业最多允许自愈修正 3 次，逾期直接降级为 Needs review，绝不允许任何带病代码注入 Gold 生产层。
+> 大语言模型（LLM）绝不拥有自主写库权或生产发布权。LLM 仅在严格受限且经过 Pydantic 校验的中间表示（IR）范围内提出代码建议。所有候选 PySpark 脚本必须通过与权威旧系统标准答案（`oracle_output.parquet`）的全量逐行数学对账。未通过对账的作业最多允许 3 次自愈重试，逾期安全降级为 `Needs review`，绝不允许任何带病代码注入 Gold 生产层。
 
 ---
 
-## 2. Team Members & Responsibilities / 团队成员与职责分工
+## 2. 3-Step Quickstart Guide / 3 步快速开始与评委复现指南
 
-- **Tianyue Li / 李天悦**:
-  - Lakehouse architecture design & CI/CD automation pipeline.
-    湖仓架构设计与 CI/CD 自动化流水线。
-  - Bronze raw layer ingestion, Silver data contracts, and Gold production deployment governance.
-    Bronze 原始层摄取、Silver 数据契约引擎以及 Gold 生产部署门禁治理。
-- **Pin-Yun Kuo / 郭小妘**:
-  - Migration compiler kernel (`sqlglot` AST parsing & IR Schema v0).
-    迁移编译器核心引擎（`sqlglot` 语法树解析与 IR 结构定义）。
-  - Deterministic PySpark codegen, row-by-row reconciliation engine, and failure shrinking.
-    确定性代码生成器、逐行对账引擎与反例缩减器。
-- **Neeraj**:
-  - SQL Server benchmark baseline execution & ground-truth parquet generation (`oracle_output.parquet`).
-    本地 SQL Server 基准测试环境搭建与权威标准答案导出。
-  - Streamlit governance workbench & interactive executive UI.
-    Streamlit 交互式治理工作台与端到端血缘大屏。
+Run these 3 commands in a clean environment (Python 3.10+):
 
----
-
-## 3. Directory Structure Topology / 代码仓库目录拓扑
-
-```plaintext
-exl-migration-factory/
-├── .github/
-│   └── workflows/
-│       └── ci.yml               # [EN] GitHub Actions CI pipeline with reconciliation gates
-│                                # [CN] GitHub Actions 自动化对账 CI 门禁流水线
-├── cloud/                       # [EN] Lakehouse storage & deployment tier
-│                                # [CN] 湖仓架构与部署调度层
-│   ├── bronze_ingest.py         # [EN] Raw CSV -> Delta Lake (Bronze ingestion)
-│   │                            # [CN] CSV 到 Delta Lake 原始层摄取管道
-│   ├── silver_contracts.py      # [EN] Data Contracts enforcement & semantic cleansing
-│   │                            # [CN] 声明式数据契约验证与清洗引擎
-│   └── gold_deploy.py           # [EN] Production quality gate dispatcher for Gold layer
-│                                # [CN] 验证通过 Job 的 Gold 生产层自动化发布与门禁
-├── jobs/                        # [EN] 12 migration job packages (J01~J09, S01~S03)
-│                                # [CN] 12 个迁移作业独立包
-│   ├── J01/                     # [EN] Self-contained job package triplet
-│   │                            # [CN] 独立作业三元组 (legacy.sql, meta.yaml, oracle_output.parquet)
-│   │   ├── legacy.sql           # [EN] Unaltered legacy T-SQL code / 原始遗留 SQL
-│   │   ├── meta.yaml            # [EN] Job metadata & reconciliation schema / 作业元数据与对账声明
-│   │   └── oracle_output.parquet# [EN] Authoritative benchmark ground truth / 旧系统权威标准答案
-│   ├── ...                      # J02 to J09 (T-SQL)
-│   └── S01/ ... S03/            # S01 to S03 (SAS Actuarial scripts / SAS 精算作业)
-├── engine/                      # [EN] Migration Factory compiler kernel
-│                                # [CN] 迁移工厂核心编译器
-│   ├── parser.py                # [EN] sqlglot T-SQL AST parser / 语法树解析器
-│   ├── ir_schema.py             # [EN] Intermediate Representation Pydantic models / IR 规范定义
-│   ├── codegen.py               # [EN] Deterministic AST/IR to PySpark generator / 确定性代码生成器
-│   ├── llm_fallback.py          # [EN] Audited LLM fallback translator / 审计追踪 LLM 兜底翻译器
-│   ├── reconciler.py            # [EN] Row-by-row reconciliation engine / 逐行全外连接对账引擎
-│   └── shrinker.py              # [EN] Minimal reproducible counterexample shrinker / 失败测试反例缩减器
-├── ui/                          # [EN] Streamlit governance workbench & UI
-│                                # [CN] Streamlit 交互与治理工作台
-│   ├── app.py                   # [EN] Streamlit entrypoint / 主入口
-│   ├── mock_data/               # [EN] Decoupled state stubs (status_store.json) / 状态存储存根
-│   └── pages/                   # [EN] Overview, Lineage, Reconciliation & Business tabs / 大屏与详情页面
-├── data/                        # [EN] Lakehouse physical data (Git ignored)
-│                                # [CN] 湖仓物理存储目录 (Git 忽略，仅存样例)
-│   ├── raw/                     # [EN] Raw datasets (freMTPL2freq.csv, freMTPL2sev.csv)
-│   ├── bronze/                  # [EN] Delta Lake Bronze raw layer
-│   ├── silver/                  # [EN] Delta Lake Silver cleansed layer
-│   └── gold/                    # [EN] Delta Lake Gold business layer
-├── docs/                        # [EN] Official hackathon deliverables
-│                                # [CN] 参赛终验交付物
-│   ├── architecture_diagram.png # [EN] Single-page system architecture diagram / 单页系统架构图
-│   └── responsible_ai_note.pdf  # [EN] Single-page Responsible AI declaration / 单页 RAI 声明文档
-├── tests/                       # [EN] Automated test suite / 自动化测试套件
-├── requirements.txt             # [EN] Pinned global dependency manifest / 依赖锁定文件
-└── README.md                    # [EN] Evaluation & reproduction guide / 评委复现指南
-```
-
----
-
-## 4. Medallion Lakehouse Architecture / 奖牌湖仓分层物理契约
-
-| Layer / 分层 | Storage & Format / 存储与格式 | Data Contract Specification / 契约规范 | Owner / 负责人 |
-| :--- | :--- | :--- | :--- |
-| **Bronze (原始层)** | Delta Lake<br>`data/bronze/` | Preserves raw schema. Strictly appends `_ingested_at` and `_source_file` audit columns. Enforces append-only.<br>保留原始结构，追加审计元数据，禁止修改内容，只允许追加。 | Tianyue Li / 李天悦 |
-| **Silver (清洗层)** | Delta Lake<br>`data/silver/` | Schema validation, type casting, safe null replacement, and SCD2 change tracking.<br>实施 Schema 强制验证、类型清洗、空值置换，支持 SCD2 维表追踪。 | Pin-Yun & Neeraj |
-| **Gold (业务层)** | Delta Lake<br>`data/gold/` | Production aggregate tables and actuarial triangles. ONLY accessible by `Verified`/`Tested` jobs with human approval sign-off.<br>精算三角形与 KPI 宽表；仅允许状态为 Verified/Tested 且经人工审批的作业写入。 | Tianyue Li / 李天悦 |
-
----
-
-## 5. Quickstart & Reproduction Guide / 快速开始与评委复现指南
-
-### Step 1: Environment Setup / 环境准备与依赖安装
-Recommended Python 3.10+ / 建议使用 Python 3.10 以上版本：
 ```bash
-# Clone the repository / 克隆代码仓库
-git clone https://github.com/Daniel-Leestar/exl-migration-factory.git
-cd exl-migration-factory
-
-# Initialize virtual environment / 创建虚拟环境
-python -m venv .venv
-source .venv/bin/activate       # On Windows: .venv\Scripts\activate
-
-# Install dependencies / 安装全局锁定依赖
-pip install --upgrade pip
+# Step 1: Install pinned dependencies / 安装全局锁定依赖
 pip install -r requirements.txt
-```
 
-### Step 2: Download Dataset & Ingest Bronze Layer / 下载数据集并摄取 Bronze 原始层
-```bash
-# Ingest raw French motor insurance CSVs into Delta Lake Bronze layer
-# 将原始法国车险 CSV 数据摄取至 Delta Lake Bronze 原始层
-python cloud/bronze_ingest.py
-```
-
-### Step 3: Run Automated Test Suite / 执行自动化测试与对账验证
-```bash
-# Run test suite with pytest / 使用 pytest 运行全套测试
+# Step 2: Run complete automated test suite (Contracts + Reconciliation Gates)
+# 执行全量自动化测试套件 (包含数据契约校验与双轨对账门禁)
 pytest tests/ -v
 
-# Or use Python built-in runner / 或使用 Python 内置测试器
-python -m unittest discover -s tests
+# Step 3: Run end-to-end Medallion & Governance Pipeline
+# 一键运行端到端 Medallion 湖仓摄取、契约清洗、对账门禁与 Gold 发布流水线
+python run_e2e_factory.py
 ```
 
-### Step 4: Launch Governance Dashboard / 启动 Streamlit 交互治理工作台
+### Launch Interactive Governance Workbench / 启动 Streamlit 交互治理大屏
 ```bash
-# Launch interactive web application / 启动前端交互看板
 streamlit run ui/app.py
 ```
 
 ---
 
-## 6. Verification Status Tiers / 验证状态三等级定义
+## 3. Repository Architecture Topology / 代码仓库拓扑结构
 
-- 🟢 **Verified (High Trust / 最高可信)**:
-  - Processed entirely via deterministic compiler path (sqlglot -> AST -> IR -> PySpark).
-  - 0 discrepancies in row-by-row reconciliation against SQL Server standard answers.
-  - 全程走确定性编译器路径，逐行对账与标准答案完全一致（差异数为 0）。
-- 🔵 **Tested (AI-Augmented / AI 增强验证)**:
-  - Handled via LLM fallback translator for complex dialect or SAS procedures.
-  - Validated with 100% reconciliation parity and bounded self-healing iterations.
-  - 由 LLM 辅助翻译，必须 100% 通过双轨对账与反例缩减测试。
-- 🟡/🔴 **Needs review (Honest Boundary / 诚实边界待审)**:
-  - Complex stored procedures or scripts where reconciliation failed after 3 self-healing attempts.
-  - Transparently marked to demonstrate responsible system boundaries.
-  - 自愈 3 次后仍未通过或不支持的语法，诚实展示系统边界，绝不带病上线。
+```plaintext
+exl-migration-factory/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # [EN] GitHub Actions CI with nightly cron & reconciliation blocking gate
+│                                # [CN] GitHub Actions CI 流水线 (包含每日定时回归与强阻断对账门禁)
+├── cloud/                       # [EN] Azure Lakehouse storage, contracts & deployment tier
+│                                # [CN] Azure 湖仓存储、数据契约与部署调度层
+│   ├── bronze_ingest.py         # [EN] Raw CSV -> Delta Lake (Append-only Bronze with audit metadata)
+│   │                            # [CN] 原始数据到 Delta Lake Bronze 层摄取管道 (只追加与元数据注入)
+│   ├── silver_contracts.py      # [EN] Schema casting, domain validation & Quarantine isolation routing
+│   │                            # [CN] Silver 层数据契约校验与 Quarantine 隔离分流引擎 (拦截 1,224 异常)
+│   └── gold_deploy.py           # [EN] Production admission gate, automated deployment & SLA alert engine
+│                                # [CN] Gold 生产层严格准入门禁、自动发布与 SLA 告警引擎
+├── jobs/                        # [EN] 12 migration job packages (J00_mock, J01-J09, S01-S03)
+│                                # [CN] 12 个迁移作业自包含包 (包含 legacy.sql, meta.yaml, oracle_output.parquet)
+│   ├── J00_mock/                # [EN] Decoupled baseline verification mock job package
+│   └── ...                      # [EN] J01-J09 (T-SQL), S01-S03 (SAS Actuarial)
+├── engine/                      # [EN] Migration compiler kernel (AST, IR v0, Codegen, Reconciler, Shrinker)
+│                                # [CN] 迁移工厂核心编译器 (AST 语法树解析、确定性生成、对账比对、反例缩减)
+├── ui/                          # [EN] Streamlit executive workbench (lineage graphs, diff inspector, ROI)
+│                                # [CN] Streamlit 交互治理工作台 (字段级血缘、对账报告、1,200 作业商业推估)
+├── data/                        # [EN] Physical Lakehouse tiers (.gitignore protected, clean fallbacks)
+│   ├── raw/                     # [EN] Raw benchmark files (freMTPL2freq.csv, freMTPL2sev.csv)
+│   ├── bronze/                  # [EN] Bronze Delta Lake tables
+│   ├── silver/                  # [EN] Silver Delta Lake tables (99.82% pass rate)
+│   ├── quarantine/              # [EN] Dead-Letter Quarantine isolation (1,224 anomalous records)
+│   └── gold/                    # [EN] Production Gold Marts & SLA alert logs
+├── docs/                        # [EN] Hackathon submission deliverables (Diagrams, Demo script, Deck)
+│   ├── architecture_diagram.svg # [EN] 1920x1080 High-resolution vector architecture diagram
+│   ├── architecture_diagram.mmd # [EN] Mermaid source code for architecture topology
+│   ├── responsible_ai_note.md   # [EN] Single-page Responsible AI declaration
+│   ├── demo_script_3min.md      # [EN] Timestamped 3-minute video recording storyboard
+│   └── deck_architecture_ops.md # [EN] Slide-by-slide copy for solution deck
+├── tests/                       # [EN] Automated test suites (Bronze, Silver, Reconciliation, Gold)
+├── run_e2e_factory.py           # [EN] Single-command end-to-end orchestrator
+├── requirements.txt             # [EN] Pinned global dependency manifest
+└── README.md                    # [EN] Official submission documentation
+```
+
+---
+
+## 4. Medallion Lakehouse & Quarantine Architecture / 奖牌湖仓与隔离区架构
+
+| Tier / 分层 | Storage & Format / 存储格式 | Governance & Contract Rules / 治理规则与数据契约 | Owner / 负责人 |
+| :--- | :--- | :--- | :--- |
+| **Bronze (原始层)** | Delta Lake / Parquet<br>`data/bronze/` | Preserves raw schema. Strictly appends `_ingested_at` and `_source_file` audit columns. Enforces append-only.<br>保持原始结构，追加系统审计字段，只追加不修改。 | Tianyue Li / 李天悦 |
+| **Silver (清洗层)** | Delta Lake / Parquet<br>`data/silver/` | Enforces Schema casting, string trimming/uppercasing, defaults (`UNKNOWN`). Routes invalid records to Quarantine.<br>强制类型转换、分类文本大写与去空格、空值填充。合规率 99.82%。 | Tianyue Li / 李天悦 |
+| **Quarantine (隔离区)** | Delta Lake / Parquet<br>`data/quarantine/` | Dead-Letter Queue (DLQ). Traps 1,224 rows violating `Exposure <= 1.0` or underage driving with `_quarantine_reasons`.<br>死信隔离区，精准拦截 1,224 条异常记录并打标违规成因，零污染下游。 | Tianyue Li / 李天悦 |
+| **Gold (业务层)** | Delta Lake / Parquet<br>`data/gold/` | Production marts. ONLY admitted if `status in ["Verified", "Tested"]` AND `approved=True`. Protected by SLA alerts.<br>精算宽表与 KPI 聚合。仅允许双轨对账通过且经人工签核的作业入库。 | Tianyue Li / 李天悦 |
+
+---
+
+## 5. Mandatory Hackathon Disclosures / 官方参赛强制披露声明
+
+### Datasets Used / 数据集使用声明
+- **French Motor Third-Party Liability Dataset (`freMTPL2freq`, `freMTPL2sev`)**:
+  - Source: Public actuarial research dataset hosted on Hugging Face / OpenML.
+  - Licensing: Open Access (GPL-2.0 / CC0).
+  - Scope: 678,013 risk records and 26,639 claim records.
+- **Synthetic SCD2 Stream**: Generated via `Faker` (MIT License) for simulating policy renewals and rating tier transitions.
+- **Zero Real Client / Personal Data**: All demonstrations and benchmarking use 100% anonymized or synthetic data.
+
+### AI & Open-Source Tools Declared / 声明采用的 AI 与开源工具
+- **`sqlglot` (MIT)**: Deterministic T-SQL dialect parsing, semantic AST tree extraction, and column-level lineage graph generation.
+- **`PySpark` & `Delta Lake` (Apache-2.0)**: Distributed compute engine and ACID transaction lakehouse table format.
+- **`Streamlit` (Apache-2.0)**: Interactive web control plane for lineage exploration, reconciliation proof inspection, and human sign-off.
+- **LLM APIs (Azure OpenAI / Claude via API)**: Utilized strictly as fallback code proposal agents on code syntax, schema structures, and synthetic counterexample diffs. **Zero customer or PII data is ever transmitted to any external API.**

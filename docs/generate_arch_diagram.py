@@ -1,0 +1,418 @@
+"""System Architecture Diagram Generator (SVG & Mermaid).
+系统架构图生成脚本 (生成 1920x1080 矢量 SVG 与 Mermaid 源码).
+
+Owner / 负责人: Tianyue Li / 李天悦 (DevOps & Lakehouse Lead)
+Module Function / 模块功能:
+  - Generates standalone 1920x1080 crisp SVG architecture diagram across 4 enterprise zones.
+    生成包含 4 大企业级架构区域的 1920x1080 高清横向矢量架构图。
+  - Exports docs/architecture_diagram.mmd with full Mermaid workflow topology.
+    导出包含完整拓扑流向的 docs/architecture_diagram.mmd 源码。
+  - Completely zero-dependency (pure Python string formatting).
+    纯标准库实现，零外部依赖。
+"""
+
+import os
+
+SVG_PATH = os.path.join("docs", "architecture_diagram.svg")
+MMD_PATH = os.path.join("docs", "architecture_diagram.mmd")
+
+
+def generate_mermaid_code() -> str:
+    """Return Mermaid diagram source code.
+    返回 Mermaid 架构图源码。
+    """
+    return """flowchart LR
+    %% Zone 1: Legacy Estate
+    subgraph Z1["Zone 1: Legacy Estate (源端资产)"]
+        SQLDocker["SQL Server 2022 Docker\\nBaseline Execution"]
+        Jobs["12 Migration Jobs\\n9 T-SQL + 3 SAS"]
+        DataRaw["freMTPL2 + Faker\\nSCD2 Benchmark Data"]
+        OracleOut[("jobs/<JOB>/oracle_output.parquet\\nAuthoritative Ground Truth")]
+        SQLDocker --> OracleOut
+        Jobs --> SQLDocker
+        DataRaw --> Jobs
+    end
+
+    %% Zone 2: Dual-Path Migration Engine
+    subgraph Z2["Zone 2: Dual-Path Agentic Migration Engine (迁移编译内核)"]
+        Parser["sqlglot AST & Lineage Parser\\nDeterministic T-SQL AST"]
+        IR["IR Schema v0 (Pydantic)\\nStrict JSON Specification"]
+        Gate{"Within IR Scope?\\n确定性语法范围判断"}
+        PathA["[Path A] Deterministic Codegen\\nDirect AST -> PySpark"]
+        PathB["[Path B] LLM Fallback Agent\\nZero-PII Syntactic Translation"]
+        Reconciler{"Record-for-Record\\nReconciliation Engine"}
+        Shrinker["Failure Shrinker\\n3x Self-Healing Feedback"]
+
+        Parser --> IR --> Gate
+        Gate -->|Yes: Standard SQL| PathA
+        Gate -->|No: Complex SP / SAS| PathB
+        PathA --> Reconciler
+        PathB --> Reconciler
+        Reconciler -.->|Mismatch: Diff > 0| Shrinker
+        Shrinker -.->|1-3 Counterexamples| PathB
+    end
+
+    %% Zone 3: Azure Lakehouse Medallion Target
+    subgraph Z3["Zone 3: Azure Lakehouse Medallion (现代湖仓目标)"]
+        Bronze[("Bronze Delta Lake\\nRaw Append-Only + Audit")]
+        Silver[("Silver Delta Lake\\nContracts Validated: 676,789")]
+        Quarantine[("Quarantine DLQ (Dead-Letter)\\n1,224 Anomalies Isolated")]
+        Gold[("Gold Business Marts\\nProduction Aggregate Cubes")]
+
+        Bronze --> Silver
+        Silver -->|Violations Detected| Quarantine
+        Silver -->|Parity Passed & Approved| Gold
+    end
+
+    %% Zone 4: Governance & Operations
+    subgraph Z4["Zone 4: Governance & Operations (治理与运维平台)"]
+        HumanGate{"Human-in-the-Loop\\nApproval Sign-off"}
+        StatusStore[("status_store.json\\nVerified / Tested / Needs Review")]
+        Streamlit["Streamlit Control Plane\\nInteractive Lineage & Diff Reports"]
+        GitHubCI["GitHub Actions CI & SLA\\nNightly Cron + Block Gate"]
+
+        Reconciler -->|Parity Confirmed (Diff=0)| StatusStore
+        StatusStore --> HumanGate
+        HumanGate -->|Approved = True| Gold
+        StatusStore --> Streamlit
+        GitHubCI --> Reconciler
+    end
+
+    Jobs --> Parser
+    Bronze --> Reconciler
+    OracleOut --> Reconciler
+"""
+
+
+def generate_svg_markup() -> str:
+    """Generate crisp 1920x1080 SVG vector graphic string.
+    生成 1920x1080 矢量 SVG 图形标记字符串。
+    """
+    svg = f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080" style="background:#090d16; font-family:'Segoe UI', system-ui, -apple-system, sans-serif;">
+  <defs>
+    <!-- Gradients -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0b0f19"/>
+      <stop offset="100%" stop-color="#050811"/>
+    </linearGradient>
+    <linearGradient id="blueCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#111c35"/>
+      <stop offset="100%" stop-color="#0a1224"/>
+    </linearGradient>
+    <linearGradient id="purpleCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#211238"/>
+      <stop offset="100%" stop-color="#140924"/>
+    </linearGradient>
+    <linearGradient id="greenCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0d2621"/>
+      <stop offset="100%" stop-color="#071915"/>
+    </linearGradient>
+    <linearGradient id="amberCard" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#2d1d09"/>
+      <stop offset="100%" stop-color="#1a1104"/>
+    </linearGradient>
+
+    <!-- Filters for Glow & Shadows -->
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.6"/>
+    </filter>
+    <filter id="accentGlow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="0" stdDeviation="6" flood-color="#38bdf8" flood-opacity="0.5"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1920" height="1080" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Grid Pattern -->
+  <g opacity="0.04" stroke="#ffffff" stroke-width="1">
+    <line x1="0" y1="270" x2="1920" y2="270"/><line x1="0" y1="540" x2="1920" y2="540"/><line x1="0" y1="810" x2="1920" y2="810"/>
+    <line x1="480" y1="0" x2="480" y2="1080"/><line x1="960" y1="0" x2="960" y2="1080"/><line x1="1440" y1="0" x2="1440" y2="1080"/>
+  </g>
+
+  <!-- Header Banner -->
+  <g transform="translate(60, 45)">
+    <text x="0" y="32" fill="#38bdf8" font-size="14" font-weight="700" letter-spacing="2">EXL &amp; UCD DATA &amp; AI HACKATHON 2026 • CHALLENGE 03</text>
+    <text x="0" y="70" fill="#ffffff" font-size="34" font-weight="800">Agentic Data Platform Modernisation Architecture</text>
+    <text x="0" y="98" fill="#94a3b8" font-size="15">Deterministic AST Compiler + Audited Zero-PII LLM Fallback + Azure Medallion Lakehouse + Automated Reconciliation Gate</text>
+    <!-- Motto Badge -->
+    <rect x="1380" y="15" width="420" height="52" rx="10" fill="#0f2347" stroke="#38bdf8" stroke-width="1.5" filter="url(#accentGlow)"/>
+    <text x="1590" y="47" fill="#38bdf8" font-size="16" font-weight="700" text-anchor="middle">"AI Proposes, the Compiler Disposes"</text>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ZONE 1: LEGACY ESTATE (Left: x=60, w=380) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(60, 170)">
+    <rect width="390" height="850" rx="18" fill="#0e1422" stroke="#334155" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="390" height="56" rx="18" fill="#1e293b" opacity="0.6"/>
+    <circle cx="28" cy="28" r="8" fill="#64748b"/>
+    <text x="48" y="35" fill="#f8fafc" font-size="18" font-weight="700">Zone 1: Legacy Estate (源端资产)</text>
+
+    <!-- Card 1.1: 12 Migration Jobs -->
+    <g transform="translate(20, 80)">
+      <rect width="350" height="150" rx="12" fill="url(#blueCard)" stroke="#1e3a5f" stroke-width="1.2"/>
+      <text x="20" y="34" fill="#38bdf8" font-size="16" font-weight="700">12 Migration Jobs (1,600 Scope)</text>
+      <text x="20" y="60" fill="#e2e8f0" font-size="13">• 9 T-SQL Jobs (J01 - J09)</text>
+      <text x="20" y="82" fill="#94a3b8" font-size="12">  Stored procs, dynamic cursors, aggregations</text>
+      <text x="20" y="106" fill="#e2e8f0" font-size="13">• 3 SAS Procedures (S01 - S03)</text>
+      <text x="20" y="128" fill="#94a3b8" font-size="12">  Actuarial triangles, FIRST.IDpol dedup</text>
+    </g>
+
+    <!-- Card 1.2: Benchmark Datasets -->
+    <g transform="translate(20, 255)">
+      <rect width="350" height="140" rx="12" fill="url(#blueCard)" stroke="#1e3a5f" stroke-width="1.2"/>
+      <text x="20" y="34" fill="#38bdf8" font-size="16" font-weight="700">Public Benchmark Data (Zero-PII)</text>
+      <text x="20" y="60" fill="#e2e8f0" font-size="13">• freMTPL2freq.csv (678k risk policies)</text>
+      <text x="20" y="84" fill="#e2e8f0" font-size="13">• freMTPL2sev.csv (26k claim records)</text>
+      <text x="20" y="108" fill="#e2e8f0" font-size="13">• Faker Synthetic SCD2 policy stream</text>
+    </g>
+
+    <!-- Card 1.3: SQL Server 2022 Docker Baseline -->
+    <g transform="translate(20, 420)">
+      <rect width="350" height="160" rx="12" fill="url(#blueCard)" stroke="#1e3a5f" stroke-width="1.2"/>
+      <text x="20" y="34" fill="#38bdf8" font-size="16" font-weight="700">SQL Server 2022 Dev Baseline</text>
+      <text x="20" y="60" fill="#94a3b8" font-size="13">Executes legacy SQL scripts in isolated Docker</text>
+      <text x="20" y="85" fill="#e2e8f0" font-size="13">Captures edge cases &amp; legacy traps:</text>
+      <text x="20" y="108" fill="#cbd5e1" font-size="12">• Integer division truncation (J04)</text>
+      <text x="20" y="128" fill="#cbd5e1" font-size="12">• Case sensitivity &amp; NULL comparisons</text>
+    </g>
+
+    <!-- Card 1.4: Oracle Output Parquet -->
+    <g transform="translate(20, 605)">
+      <rect width="350" height="140" rx="12" fill="#132338" stroke="#0ea5e9" stroke-width="1.8"/>
+      <text x="20" y="34" fill="#38bdf8" font-size="16" font-weight="700">Authoritative Oracle Output</text>
+      <text x="20" y="62" fill="#38bdf8" font-size="13" font-weight="600">jobs/&lt;JOB&gt;/oracle_output.parquet</text>
+      <text x="20" y="88" fill="#94a3b8" font-size="12">Gold standard output exported directly from</text>
+      <text x="20" y="108" fill="#94a3b8" font-size="12">SQL Server baseline for automated CI checks</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ZONE 2: DUAL-PATH MIGRATION ENGINE (Center-Left: x=480, w=440) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(480, 170)">
+    <rect width="450" height="850" rx="18" fill="#0e1422" stroke="#334155" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="450" height="56" rx="18" fill="#1e293b" opacity="0.6"/>
+    <circle cx="28" cy="28" r="8" fill="#38bdf8"/>
+    <text x="48" y="35" fill="#f8fafc" font-size="18" font-weight="700">Zone 2: Dual-Path Migration Engine</text>
+
+    <!-- Card 2.1: AST & IR Parser -->
+    <g transform="translate(25, 75)">
+      <rect width="400" height="110" rx="12" fill="url(#blueCard)" stroke="#1e3a5f" stroke-width="1.2"/>
+      <text x="20" y="32" fill="#38bdf8" font-size="15" font-weight="700">sqlglot AST &amp; Lineage Parser</text>
+      <text x="20" y="56" fill="#94a3b8" font-size="12">Transforms legacy SQL into standardized Semantic AST</text>
+      <rect x="20" y="70" width="360" height="26" rx="6" fill="#0c182b"/>
+      <text x="30" y="87" fill="#67e8f9" font-size="11" font-family="monospace">IR Schema v0: Pydantic strict AST JSON contracts</text>
+    </g>
+
+    <!-- Diamond Decision Gate -->
+    <g transform="translate(225, 230)">
+      <polygon points="0,-32 100,0 0,32 -100,0" fill="#1e293b" stroke="#38bdf8" stroke-width="1.8"/>
+      <text x="0" y="-4" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">Within IR</text>
+      <text x="0" y="12" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">Scope?</text>
+    </g>
+
+    <!-- Path A: Deterministic Codegen (Blue) -->
+    <g transform="translate(25, 290)">
+      <rect width="185" height="150" rx="12" fill="url(#blueCard)" stroke="#0284c7" stroke-width="1.8"/>
+      <text x="15" y="26" fill="#38bdf8" font-size="13" font-weight="700">[Path A: 70% Jobs]</text>
+      <text x="15" y="48" fill="#ffffff" font-size="14" font-weight="700">Deterministic</text>
+      <text x="15" y="68" fill="#ffffff" font-size="14" font-weight="700">PySpark Codegen</text>
+      <text x="15" y="95" fill="#94a3b8" font-size="11">• 100% Identical code</text>
+      <text x="15" y="113" fill="#94a3b8" font-size="11">• 0 LLM tokens spent</text>
+      <text x="15" y="131" fill="#94a3b8" font-size="11">• Standard SQL &amp; Joins</text>
+    </g>
+
+    <!-- Path B: Audited LLM Fallback (Purple) -->
+    <g transform="translate(240, 290)">
+      <rect width="185" height="150" rx="12" fill="url(#purpleCard)" stroke="#c084fc" stroke-width="1.8"/>
+      <text x="15" y="26" fill="#c084fc" font-size="13" font-weight="700">[Path B: 30% Jobs]</text>
+      <text x="15" y="48" fill="#ffffff" font-size="14" font-weight="700">Audited LLM</text>
+      <text x="15" y="68" fill="#ffffff" font-size="14" font-weight="700">Fallback Agent</text>
+      <text x="15" y="95" fill="#d8b4fe" font-size="11">• Zero-PII Prompting</text>
+      <text x="15" y="113" fill="#d8b4fe" font-size="11">• Complex SP &amp; SAS</text>
+      <text x="15" y="131" fill="#d8b4fe" font-size="11">• Bounded 3x Loop</text>
+    </g>
+
+    <!-- Card 2.2: Dual-Track Reconciliation Engine -->
+    <g transform="translate(25, 475)">
+      <rect width="400" height="175" rx="14" fill="#0c1d1a" stroke="#10b981" stroke-width="2"/>
+      <text x="20" y="32" fill="#34d399" font-size="16" font-weight="700">Record-for-Record Reconciliation Engine</text>
+      <text x="20" y="58" fill="#e2e8f0" font-size="13">Check 1: Exact Row Count Parity (Zero missing/extra rows)</text>
+      <text x="20" y="82" fill="#e2e8f0" font-size="13">Check 2: Sum &amp; Precision Checksum (1.0e-9 tolerance)</text>
+      <text x="20" y="106" fill="#e2e8f0" font-size="13">Check 3: Full Outer Join Key Diff on all columns</text>
+      <rect x="20" y="122" width="360" height="36" rx="6" fill="#064e3b" opacity="0.6"/>
+      <text x="200" y="145" fill="#a7f3d0" font-size="13" font-weight="700" text-anchor="middle">Diff == 0: Certified Verified / Tested</text>
+    </g>
+
+    <!-- Card 2.3: Failure Shrinker Loop -->
+    <g transform="translate(25, 675)">
+      <rect width="400" height="145" rx="12" fill="#2d0c12" stroke="#f43f5e" stroke-width="1.8" stroke-dasharray="6,4"/>
+      <text x="20" y="30" fill="#fb7185" font-size="15" font-weight="700">Failure Shrinker (3x Self-Healing Feedback)</text>
+      <text x="20" y="56" fill="#fda4af" font-size="12">Compresses 48,000+ discrepancies into 1-2 minimal rows</text>
+      <text x="20" y="78" fill="#fda4af" font-size="12">Feeds precise counterexamples back to LLM agent</text>
+      <text x="20" y="102" fill="#fecdd3" font-size="12">Self-healing example: J04 integer division truncation</text>
+      <text x="20" y="124" fill="#e11d48" font-size="12" font-weight="700">&gt; 3 Failures: Safely degraded to 'Needs review'</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ZONE 3: AZURE MEDALLION LAKEHOUSE (Center-Right: x=960, w=440) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(960, 170)">
+    <rect width="440" height="850" rx="18" fill="#0e1422" stroke="#334155" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="440" height="56" rx="18" fill="#1e293b" opacity="0.6"/>
+    <circle cx="28" cy="28" r="8" fill="#f59e0b"/>
+    <text x="48" y="35" fill="#f8fafc" font-size="18" font-weight="700">Zone 3: Azure Lakehouse Medallion</text>
+
+    <!-- Bronze Layer -->
+    <g transform="translate(25, 80)">
+      <rect width="390" height="150" rx="14" fill="url(#amberCard)" stroke="#d97706" stroke-width="1.5"/>
+      <text x="20" y="32" fill="#fbbf24" font-size="16" font-weight="700">Bronze Tier (Raw Ingestion)</text>
+      <text x="20" y="56" fill="#fde68a" font-size="12">Storage: data/bronze/ or ADLS Gen2 abfss://</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="13">• Append-only Delta Lake format</text>
+      <text x="20" y="104" fill="#e2e8f0" font-size="13">• Preserves raw schema intact</text>
+      <text x="20" y="128" fill="#cbd5e1" font-size="12">• Appends _ingested_at and _source_file audit keys</text>
+    </g>
+
+    <!-- Silver Layer -->
+    <g transform="translate(25, 260)">
+      <rect width="390" height="175" rx="14" fill="#142338" stroke="#38bdf8" stroke-width="1.8"/>
+      <text x="20" y="32" fill="#38bdf8" font-size="16" font-weight="700">Silver Tier (Data Contracts Cleanse)</text>
+      <text x="20" y="56" fill="#7dd3fc" font-size="12">Storage: data/silver/ (freMTPL2freq, freMTPL2sev)</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="13">• Schema casting &amp; trimming (Upper categorical)</text>
+      <text x="20" y="104" fill="#e2e8f0" font-size="13">• Not-null IDpol &amp; range rules (Exposure &lt;= 1.0)</text>
+      <rect x="20" y="120" width="350" height="36" rx="6" fill="#0284c7" opacity="0.3"/>
+      <text x="195" y="143" fill="#38bdf8" font-size="14" font-weight="700" text-anchor="middle">676,789 Cleansed (99.82% Pass Rate)</text>
+    </g>
+
+    <!-- Quarantine DLQ Branch -->
+    <g transform="translate(25, 465)">
+      <rect width="390" height="135" rx="14" fill="#2d1318" stroke="#f43f5e" stroke-width="2"/>
+      <text x="20" y="30" fill="#fb7185" font-size="16" font-weight="700">Quarantine DLQ (Dead-Letter Queue)</text>
+      <text x="20" y="55" fill="#fca5a5" font-size="12">Storage: data/quarantine/ (Isolated Delta tables)</text>
+      <text x="20" y="80" fill="#ffffff" font-size="13" font-weight="700">• 1,224 Anomalous Records Isolated</text>
+      <text x="20" y="104" fill="#fca5a5" font-size="12">• Traps Exposure &gt; 1.0 and underage driving</text>
+      <text x="20" y="122" fill="#fda4af" font-size="11">Appends _quarantine_reasons array &amp; audit timestamp</text>
+    </g>
+
+    <!-- Gold Layer -->
+    <g transform="translate(25, 630)">
+      <rect width="390" height="190" rx="14" fill="#1b2a1a" stroke="#22c55e" stroke-width="2" filter="url(#accentGlow)"/>
+      <text x="20" y="32" fill="#4ade80" font-size="16" font-weight="700">Gold Tier (Production Business Marts)</text>
+      <text x="20" y="56" fill="#86efac" font-size="12">Storage: data/gold/ or Azure Synapse Link</text>
+      <text x="20" y="80" fill="#e2e8f0" font-size="13">• Actuarial loss frequency triangles</text>
+      <text x="20" y="104" fill="#e2e8f0" font-size="13">• Regional density exposure cubes</text>
+      <text x="20" y="128" fill="#e2e8f0" font-size="13">• Strictly guarded by admission gate</text>
+      <rect x="20" y="145" width="350" height="30" rx="6" fill="#15803d"/>
+      <text x="195" y="165" fill="#ffffff" font-size="12" font-weight="700" text-anchor="middle">Zero Defective Code in Gold Layer</text>
+    </g>
+  </g>
+
+  <!-- ========================================================================= -->
+  <!-- ZONE 4: GOVERNANCE & OPERATIONS (Right: x=1430, w=430) -->
+  <!-- ========================================================================= -->
+  <g transform="translate(1430, 170)">
+    <rect width="430" height="850" rx="18" fill="#0e1422" stroke="#334155" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect x="0" y="0" width="430" height="56" rx="18" fill="#1e293b" opacity="0.6"/>
+    <circle cx="28" cy="28" r="8" fill="#a855f7"/>
+    <text x="48" y="35" fill="#f8fafc" font-size="18" font-weight="700">Zone 4: Governance &amp; Ops</text>
+
+    <!-- Verification Tiers -->
+    <g transform="translate(20, 75)">
+      <rect width="390" height="175" rx="12" fill="url(#purpleCard)" stroke="#9333ea" stroke-width="1.2"/>
+      <text x="20" y="28" fill="#c084fc" font-size="15" font-weight="700">Tri-Tier Verification Status</text>
+      <g transform="translate(20, 45)">
+        <circle cx="8" cy="8" r="6" fill="#22c55e"/>
+        <text x="22" y="12" fill="#86efac" font-size="13" font-weight="700">Verified (8 Jobs):</text>
+        <text x="135" y="12" fill="#cbd5e1" font-size="12">100% Deterministic IR &amp; Parity</text>
+      </g>
+      <g transform="translate(20, 80)">
+        <circle cx="8" cy="8" r="6" fill="#38bdf8"/>
+        <text x="22" y="12" fill="#7dd3fc" font-size="13" font-weight="700">Tested (2 Jobs):</text>
+        <text x="135" y="12" fill="#cbd5e1" font-size="12">AI-Augmented with 100% Parity</text>
+      </g>
+      <g transform="translate(20, 115)">
+        <circle cx="8" cy="8" r="6" fill="#ef4444"/>
+        <text x="22" y="12" fill="#fca5a5" font-size="13" font-weight="700">Needs Review (2):</text>
+        <text x="135" y="12" fill="#cbd5e1" font-size="12">Honest system boundary flagged</text>
+      </g>
+      <text x="20" y="155" fill="#a855f7" font-size="12" font-weight="600">State Contract: ui/mock_data/status_store.json</text>
+    </g>
+
+    <!-- Human-in-the-Loop Sign-off Gate -->
+    <g transform="translate(20, 270)">
+      <rect width="390" height="135" rx="12" fill="#1f1838" stroke="#a855f7" stroke-width="1.5"/>
+      <text x="20" y="28" fill="#e9d5ff" font-size="15" font-weight="700">Human-in-the-Loop Approval Gate</text>
+      <text x="20" y="54" fill="#cbd5e1" font-size="12">Actuaries &amp; Engineers review diff proofs in UI</text>
+      <text x="20" y="78" fill="#cbd5e1" font-size="12">Mandatory cryptographic / user sign-off required</text>
+      <rect x="20" y="92" width="350" height="28" rx="6" fill="#6b21a8" opacity="0.4"/>
+      <text x="195" y="111" fill="#f3e8ff" font-size="12" font-weight="600" text-anchor="middle">Only Approved Jobs Deploy to Gold Tier</text>
+    </g>
+
+    <!-- Streamlit Control Plane -->
+    <g transform="translate(20, 425)">
+      <rect width="390" height="190" rx="12" fill="#131c30" stroke="#38bdf8" stroke-width="1.2"/>
+      <text x="20" y="28" fill="#38bdf8" font-size="15" font-weight="700">Streamlit Interactive Control Plane</text>
+      <text x="20" y="54" fill="#cbd5e1" font-size="12">• Executive Cockpit: 83.3% automated pass rate</text>
+      <text x="20" y="78" fill="#cbd5e1" font-size="12">• End-to-End Interactive Column Lineage</text>
+      <text x="20" y="102" fill="#cbd5e1" font-size="12">• Record-for-Record Diff &amp; Counterexample viewer</text>
+      <text x="20" y="126" fill="#cbd5e1" font-size="12">• 1,200-Job Enterprise ROI &amp; Modernisation Model</text>
+      <rect x="20" y="144" width="350" height="30" rx="6" fill="#0369a1" opacity="0.4"/>
+      <text x="195" y="164" fill="#7dd3fc" font-size="12" font-weight="600" text-anchor="middle">Command: streamlit run ui/app.py</text>
+    </g>
+
+    <!-- CI/CD & SLA Monitoring -->
+    <g transform="translate(20, 635)">
+      <rect width="390" height="185" rx="12" fill="#16222f" stroke="#0ea5e9" stroke-width="1.5"/>
+      <text x="20" y="28" fill="#38bdf8" font-size="15" font-weight="700">GitHub Actions CI &amp; SLA Monitor</text>
+      <text x="20" y="52" fill="#cbd5e1" font-size="12">• Nightly 02:00 UTC Automated Regression Cron</text>
+      <text x="20" y="74" fill="#cbd5e1" font-size="12">• Dynamic Oracle Parquet Reconciliation Blocking</text>
+      <text x="20" y="96" fill="#cbd5e1" font-size="12">• SLA Alert Threshold: &lt;30s wall time, &gt;=1 row</text>
+      <text x="20" y="118" fill="#cbd5e1" font-size="12">• Alerts persisted to data/gold/sla_alerts.json</text>
+      <rect x="20" y="136" width="350" height="32" rx="6" fill="#0e7490" opacity="0.5"/>
+      <text x="195" y="157" fill="#67e8f9" font-size="12" font-weight="700" text-anchor="middle">100% Green CI Status Enforced</text>
+    </g>
+  </g>
+
+  <!-- Flow Arrows connecting Zones -->
+  <!-- Zone 1 to Zone 2 -->
+  <path d="M 450,250 L 480,250" stroke="#38bdf8" stroke-width="3" fill="none" marker-end="url(#arrow)"/>
+  <path d="M 450,670 L 480,670" stroke="#0ea5e9" stroke-width="3" fill="none"/>
+  
+  <!-- Zone 2 to Zone 3 -->
+  <path d="M 930,560 L 960,560" stroke="#10b981" stroke-width="3" fill="none"/>
+
+  <!-- Zone 3 to Zone 4 -->
+  <path d="M 1400,720 L 1430,720" stroke="#22c55e" stroke-width="3" fill="none"/>
+
+  <!-- Footer Stats Bar -->
+  <g transform="translate(60, 1035)">
+    <text x="0" y="20" fill="#64748b" font-size="13">EXL Migration Factory v1.0 • Challenge 03 Production Freeze Asset • Self-Contained Resilient Architecture</text>
+    <text x="1800" y="20" fill="#38bdf8" font-size="13" font-weight="700" text-anchor="end">Status: Feature Complete (100% Green)</text>
+  </g>
+</svg>
+"""
+    return svg
+
+
+def main():
+    os.makedirs("docs", exist_ok=True)
+
+    # 1. Generate Mermaid specification
+    mmd_content = generate_mermaid_code()
+    with open(MMD_PATH, "w", encoding="utf-8") as f:
+        f.write(mmd_content)
+    print(f"[Diagram] Generated Mermaid specification: {MMD_PATH}")
+
+    # 2. Generate crisp SVG vector graphic
+    svg_content = generate_svg_markup()
+    with open(SVG_PATH, "w", encoding="utf-8") as f:
+        f.write(svg_content)
+    print(f"[Diagram] Generated 1920x1080 SVG vector diagram: {SVG_PATH}")
+
+
+if __name__ == "__main__":
+    main()
+
