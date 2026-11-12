@@ -1,7 +1,20 @@
-id: J06
-language: tsql
-title: Risk tier from BonusMalus
-trap: Boundary values; NULL falls into ELSE
-inputs: [policy]
-output:
-  primary_key: [IDpol]
+job_id: J06
+name: Risk tier from BonusMalus
+source_dialect: tsql
+expected_path: IR
+trap_category: Boundary values; NULL falls into ELSE
+sources:
+- table_name: policy
+  schema: dbo
+primary_keys:
+- IDpol
+columns:
+- name: IDpol
+  type: INT
+  compare_mode: exact
+- name: BonusMalus
+  type: INT
+  compare_mode: exact
+- name: RiskTier
+  type: VARCHAR
+  compare_mode: exact

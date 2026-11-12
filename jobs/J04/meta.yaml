@@ -1,7 +1,23 @@
-id: J04
-language: tsql
-title: Share of policies with a claim per region
-trap: Integer division drops the fraction
-inputs: [policy]
-output:
-  primary_key: [Region]
+job_id: J04
+name: Share of policies with a claim per region
+source_dialect: tsql
+expected_path: IR
+trap_category: Integer division drops the fraction
+sources:
+- table_name: policy
+  schema: dbo
+primary_keys:
+- Region
+columns:
+- name: Region
+  type: VARCHAR
+  compare_mode: exact
+- name: Policies
+  type: INT
+  compare_mode: exact
+- name: WithClaim
+  type: INT
+  compare_mode: exact
+- name: PctWithClaim
+  type: INT
+  compare_mode: exact

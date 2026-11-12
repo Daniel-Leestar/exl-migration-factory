@@ -169,6 +169,6 @@ def test_job_loading(tmp_path):
     with pytest.raises(JobError):
         load_job(folder)
     (folder / "legacy.sas").write_text("data a; set b; run;", encoding="utf-8")
-    (folder / "meta.yaml").write_text("id: J50\ninputs: [claims]\noutput:\n  primary_key: [IDpol]\n", encoding="utf-8")
+    (folder / "meta.yaml").write_text("job_id: J50\nsources:\n  - table_name: claims\nprimary_keys: [IDpol]\n", encoding="utf-8")
     job = load_job(folder)
     assert (job.id, job.language, job.inputs, job.primary_key) == ("J50", "sas", ["claims"], ["IDpol"])

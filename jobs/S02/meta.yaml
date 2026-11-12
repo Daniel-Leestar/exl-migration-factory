@@ -1,7 +1,9 @@
-id: S02
-language: sas
-title: Running claim total per policy (RETAIN)
-trap: Must be rewritten as a Spark window
-inputs: [claims]
-output:
-  primary_key: []
+job_id: S02
+name: Running claim total per policy (RETAIN)
+source_dialect: sas
+expected_path: LLM
+trap_category: Must be rewritten as a Spark window
+sources:
+- table_name: claims
+  schema: dbo
+primary_keys: []

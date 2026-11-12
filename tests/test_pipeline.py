@@ -76,7 +76,7 @@ def make_job(tmp_path, sql, name="JX"):
     folder = tmp_path / "jobs" / name
     folder.mkdir(parents=True)
     (folder / "legacy.sql").write_text(sql, encoding="utf-8")
-    (folder / "meta.yaml").write_text(f"id: {name}\ninputs: [t]\noutput:\n  primary_key: [id]\n", encoding="utf-8")
+    (folder / "meta.yaml").write_text(f"job_id: {name}\nsources:\n  - table_name: t\nprimary_keys: [id]\n", encoding="utf-8")
     return folder
 
 
@@ -152,7 +152,7 @@ def test_bad_inputs_never_raise(tmp_path, spark):
     assert entry["level"] == NEEDS_REVIEW and "LLM path is switched off" in entry["reason"]
 
     folder = make_job(tmp_path, DIVIDE_SQL, "JBAD")
-    (folder / "meta.yaml").write_text("id: JBAD\ninputs: [no_such_table]\n", encoding="utf-8")
+    (folder / "meta.yaml").write_text("job_id: JBAD\nsources:\n  - table_name: no_such_table\n", encoding="utf-8")
     assert "not in the schema file" in run_job(folder, ctx)["reason"]
 
     missing = run_job(tmp_path / "jobs" / "does_not_exist", ctx)

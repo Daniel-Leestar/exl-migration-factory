@@ -83,25 +83,35 @@ def load_job(path: Path) -> Job:
             raise JobError(f"{meta_path}: not valid YAML ({exc})") from exc
         if not isinstance(meta, dict):
             raise JobError(f"{meta_path}: expected a mapping at the top level")
-    return _from_file(code_files[0], job_id=str(meta.get("id") or path.name), meta=meta)
+    return _from_file(code_files[0], job_id=str(meta.get("job_id") or path.name), meta=meta)
 
 
 def _from_file(code_path: Path, job_id: str, meta: dict) -> Job:
     language = LANGUAGE_BY_SUFFIX.get(code_path.suffix.lower())
     if language is None:
         raise JobError(f"{code_path}: unsupported file type, expected .sql or .sas")
-    output = meta.get("output") or {}
+    # meta.yaml follows the team's frozen contract; engine-only settings live under `engine:`.
+    # meta.yaml 依團隊凍結的契約;引擎專用的設定放在 `engine:` 區塊。
+    extra = meta.get("engine") or {}
+    sources = meta.get("sources") or []
+    if not isinstance(extra, dict) or not isinstance(sources, list):
+        raise JobError(f"{code_path.parent / 'meta.yaml'}: `engine` must be a mapping and `sources` a list")
+    inputs = []
+    for source in sources:
+        if not isinstance(source, dict) or not source.get("table_name"):
+            raise JobError(f"{code_path.parent / 'meta.yaml'}: every entry in `sources` needs a table_name, got {source!r}")
+        inputs.append(str(source["table_name"]))
     return Job(
         id=job_id,
-        language=str(meta.get("language") or language),
+        language=str(meta.get("source_dialect") or language).lower(),
         legacy_code=code_path.read_text(encoding="utf-8-sig"),
         source_path=code_path,
-        title=str(meta.get("title") or ""),
-        trap=str(meta.get("trap") or ""),
-        inputs=[str(t) for t in (meta.get("inputs") or [])],
-        primary_key=[str(c) for c in (output.get("primary_key") or [])],
-        output_table=output.get("table"),
-        ci_columns=[str(c) for c in (output.get("ci_columns") or [])],
+        title=str(meta.get("name") or ""),
+        trap=str(meta.get("trap_category") or ""),
+        inputs=inputs,
+        primary_key=[str(c) for c in (meta.get("primary_keys") or [])],
+        output_table=extra.get("output_table"),
+        ci_columns=[str(c) for c in (extra.get("ci_columns") or [])],
     )
 
 

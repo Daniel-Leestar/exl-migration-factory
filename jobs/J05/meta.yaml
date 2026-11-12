@@ -1,7 +1,28 @@
-id: J05
-language: tsql
-title: Averages per vehicle brand
-trap: AVG over an integer column drops the fraction in T-SQL
-inputs: [policy, claims]
-output:
-  primary_key: [VehBrand]
+job_id: J05
+name: Averages per vehicle brand
+source_dialect: tsql
+expected_path: IR
+trap_category: AVG over an integer column drops the fraction in T-SQL
+sources:
+- table_name: policy
+  schema: dbo
+- table_name: claims
+  schema: dbo
+primary_keys:
+- VehBrand
+columns:
+- name: VehBrand
+  type: VARCHAR
+  compare_mode: exact
+- name: AvgVehAge
+  type: INT
+  compare_mode: exact
+- name: AvgDrivAge
+  type: INT
+  compare_mode: exact
+- name: AvgClaim
+  type: DECIMAL(38,6)
+  compare_mode: exact
+- name: Claims
+  type: INT
+  compare_mode: exact

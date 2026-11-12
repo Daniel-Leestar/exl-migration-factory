@@ -5,6 +5,7 @@ Commands / 指令:
   make-base   sample the raw freMTPL2 CSVs into datasets/base      取樣原始 CSV
   run         process one job folder or .sql/.sas file             處理單一 job
   run-all     process every job and write out/status.json          處理全部 job
+  export      publish results in the team's interface formats      依團隊介面格式匯出結果
 
 Settings come from environment variables or a `.env` file in the project root:
 設定來自環境變數,或專案根目錄的 `.env` 檔:
@@ -20,6 +21,7 @@ import sys
 from pathlib import Path
 
 from engine.datasets import load_base, make_base
+from engine.export import ExportError, export_all
 from engine.job import load_schemas
 from engine.legacy.runner import LegacyUnavailable, SqlServerRunner
 from engine.llm.client import OllamaClient
@@ -52,6 +54,11 @@ def main(argv: list[str] | None = None) -> int:
         sub.add_argument("--no-base", action="store_true", help="skip the real-data sample")
         sub.add_argument("--no-shrink", action="store_true", help="do not shrink counterexamples")
 
+    publish = commands.add_parser("export", help="write status_store.json, reports and CI gate packages")
+    publish.add_argument("--jobs", type=Path, default=ROOT / "jobs")
+    publish.add_argument("--out", type=Path, default=ROOT / "out")
+    publish.add_argument("--ui", type=Path, default=ROOT / "ui" / "mock_data", help="folder for status_store.json")
+
     args = parser.parse_args(argv)
     schemas = load_schemas((getattr(args, "jobs", ROOT / "jobs")) / "_schemas.yaml")
 
@@ -59,6 +66,18 @@ def main(argv: list[str] | None = None) -> int:
         counts = make_base(args.data_dir, ROOT / "datasets" / "base", schemas, sample=not args.full)
         print(f"base dataset written: {counts}")
         return 0
+
+    if args.command == "export":
+        try:
+            result = export_all(args.out, args.jobs, ROOT / "datasets" / "base", args.ui, schemas)
+        except ExportError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        print("metrics:", result["store"]["metrics"])
+        print("CI gate packages:", ", ".join(result["gate_jobs"]) or "none")
+        for job_id, reason in result["problems"].items():
+            print(f"error: {job_id} not exported: {reason}", file=sys.stderr)
+        return 1 if result["problems"] else 0
 
     ctx = Context(schemas=schemas, out_dir=args.out, record_golden=args.record_golden)
     if not args.no_base:

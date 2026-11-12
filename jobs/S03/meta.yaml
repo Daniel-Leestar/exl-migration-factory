@@ -1,7 +1,12 @@
-id: S03
-language: sas
-title: Loss summary per region (PROC SQL + PROC MEANS)
-trap: Missing values are handled differently by PROC MEANS and SQL
-inputs: [policy, claims]
-output:
-  primary_key: [Region]
+job_id: S03
+name: Loss summary per region (PROC SQL + PROC MEANS)
+source_dialect: sas
+expected_path: LLM
+trap_category: Missing values are handled differently by PROC MEANS and SQL
+sources:
+- table_name: policy
+  schema: dbo
+- table_name: claims
+  schema: dbo
+primary_keys:
+- Region

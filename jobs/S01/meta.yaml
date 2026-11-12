@@ -1,7 +1,10 @@
-id: S01
-language: sas
-title: First claim per policy (DATA step FIRST./LAST.)
-trap: SAS sorts missing values before every number
-inputs: [claims]
-output:
-  primary_key: [IDpol]
+job_id: S01
+name: First claim per policy (DATA step FIRST./LAST.)
+source_dialect: sas
+expected_path: LLM
+trap_category: SAS sorts missing values before every number
+sources:
+- table_name: claims
+  schema: dbo
+primary_keys:
+- IDpol

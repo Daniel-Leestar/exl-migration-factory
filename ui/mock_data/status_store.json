@@ -1,0 +1,221 @@
+{
+  "updated_at": "2026-11-12T20:26:12+00:00",
+  "metrics": {
+    "total_jobs": 12,
+    "verified": 7,
+    "tested": 0,
+    "needs_review": 5,
+    "pass_rate_pct": 58.33
+  },
+  "jobs": [
+    {
+      "job_id": "J01",
+      "name": "Policy cleansing (truncate exposure, standardise codes, age bands)",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J02",
+      "name": "Claim total and count per policy",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J03",
+      "name": "Policies LEFT JOIN claims, zero-filled",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J04",
+      "name": "Share of policies with a claim per region",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J05",
+      "name": "Averages per vehicle brand",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J06",
+      "name": "Risk tier from BonusMalus",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J07",
+      "name": "Data quality check, ClaimNb vs actual claim rows",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "IR",
+      "status": "Verified",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      }
+    },
+    {
+      "job_id": "J08",
+      "name": "Policy dimension SCD Type 2 (MERGE)",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "LLM",
+      "status": "Needs review",
+      "reconciliation_passed": false,
+      "discrepancies": null,
+      "reason": "still differs from legacy after 3 repair(s): code failed to run: TypeError: optional argument must be a context",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 4
+    },
+    {
+      "job_id": "J09",
+      "name": "Region ranking report (stored procedure, temp table, RANK)",
+      "category": "Unclassified",
+      "dialect": "T-SQL",
+      "path": "LLM",
+      "status": "Needs review",
+      "reconciliation_passed": false,
+      "discrepancies": 17,
+      "reason": "still differs from legacy after 3 repair(s): 0 missing, 0 extra, 17 different rows",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 4
+    },
+    {
+      "job_id": "S01",
+      "name": "First claim per policy (DATA step FIRST./LAST.)",
+      "category": "Unclassified",
+      "dialect": "SAS",
+      "path": "LLM",
+      "status": "Needs review",
+      "reconciliation_passed": false,
+      "discrepancies": null,
+      "reason": "no legacy output to compare against (unavailable: no answer file for dataset 'adversarial' in jobs\\S01\\golden; unavailable: no answer file for dataset 'base' in jobs\\S01\\golden; unavailable: no answer file for dataset 'empty' in jobs\\S01\\golden)",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 0
+    },
+    {
+      "job_id": "S02",
+      "name": "Running claim total per policy (RETAIN)",
+      "category": "Unclassified",
+      "dialect": "SAS",
+      "path": "LLM",
+      "status": "Needs review",
+      "reconciliation_passed": false,
+      "discrepancies": null,
+      "reason": "no legacy output to compare against (unavailable: no answer file for dataset 'adversarial' in jobs\\S02\\golden; unavailable: no answer file for dataset 'base' in jobs\\S02\\golden; unavailable: no answer file for dataset 'empty' in jobs\\S02\\golden)",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 0
+    },
+    {
+      "job_id": "S03",
+      "name": "Loss summary per region (PROC SQL + PROC MEANS)",
+      "category": "Unclassified",
+      "dialect": "SAS",
+      "path": "LLM",
+      "status": "Needs review",
+      "reconciliation_passed": false,
+      "discrepancies": null,
+      "reason": "no legacy output to compare against (unavailable: no answer file for dataset 'adversarial' in jobs\\S03\\golden; unavailable: no answer file for dataset 'base' in jobs\\S03\\golden; unavailable: no answer file for dataset 'empty' in jobs\\S03\\golden)",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 0
+    }
+  ]
+}

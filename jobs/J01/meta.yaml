@@ -1,7 +1,26 @@
-id: J01
-language: tsql
-title: Policy cleansing (truncate exposure, standardise codes, age bands)
-trap: Text comparison ignores upper/lower case in SQL Server
-inputs: [policy]
-output:
-  primary_key: [IDpol]
+job_id: J01
+name: Policy cleansing (truncate exposure, standardise codes, age bands)
+source_dialect: tsql
+expected_path: IR
+trap_category: Text comparison ignores upper/lower case in SQL Server
+sources:
+- table_name: policy
+  schema: dbo
+primary_keys:
+- IDpol
+columns:
+- name: IDpol
+  type: INT
+  compare_mode: exact
+- name: ExposureTrunc
+  type: DECIMAL(10,6)
+  compare_mode: exact
+- name: VehBrand
+  type: VARCHAR
+  compare_mode: exact
+- name: FuelCode
+  type: VARCHAR
+  compare_mode: exact
+- name: AgeBand
+  type: VARCHAR
+  compare_mode: exact
