@@ -1,0 +1,1 @@
+VehBrand:string,AvgVehAge:int,AvgDrivAge:int,"AvgClaim:decimal(38,6)",Claims:int

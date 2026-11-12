@@ -1,0 +1,7 @@
+id: J04
+language: tsql
+title: Share of policies with a claim per region
+trap: Integer division drops the fraction
+inputs: [policy]
+output:
+  primary_key: [Region]

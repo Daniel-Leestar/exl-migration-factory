@@ -1,0 +1,7 @@
+Region:string,Policies:int,WithClaim:int,PctWithClaim:int
+\N,7,4,57
+,4,1,25
+A,10,7,70
+ALPHA,11,3,27
+b,7,3,42
+Zed,1,1,100

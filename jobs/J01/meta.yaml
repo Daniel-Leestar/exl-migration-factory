@@ -1,0 +1,7 @@
+id: J01
+language: tsql
+title: Policy cleansing (truncate exposure, standardise codes, age bands)
+trap: Text comparison ignores upper/lower case in SQL Server
+inputs: [policy]
+output:
+  primary_key: [IDpol]

@@ -1,0 +1,7 @@
+id: J02
+language: tsql
+title: Claim total and count per policy
+trap: SUM over no rows is NULL, not 0
+inputs: [claims]
+output:
+  primary_key: [IDpol]

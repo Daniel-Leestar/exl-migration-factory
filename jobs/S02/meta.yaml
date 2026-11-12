@@ -1,0 +1,7 @@
+id: S02
+language: sas
+title: Running claim total per policy (RETAIN)
+trap: Must be rewritten as a Spark window
+inputs: [claims]
+output:
+  primary_key: []

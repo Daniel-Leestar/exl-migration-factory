@@ -1,0 +1,7 @@
+id: S01
+language: sas
+title: First claim per policy (DATA step FIRST./LAST.)
+trap: SAS sorts missing values before every number
+inputs: [claims]
+output:
+  primary_key: [IDpol]

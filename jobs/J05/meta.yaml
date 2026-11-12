@@ -1,0 +1,7 @@
+id: J05
+language: tsql
+title: Averages per vehicle brand
+trap: AVG over an integer column drops the fraction in T-SQL
+inputs: [policy, claims]
+output:
+  primary_key: [VehBrand]
