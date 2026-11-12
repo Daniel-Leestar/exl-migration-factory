@@ -1,116 +1,161 @@
-# Migration Factory — legacy T-SQL / SAS to PySpark, with proof
+# EXL Migration Factory (Challenge 03: Agentic Data Platform Modernisation)
+# EXL 自动化迁移工厂 (选题目三：智能数据平台现代化)
 
-EXL × UCD Data & AI Hackathon 2026 · Challenge 03 (Agentic data platform modernisation).
+> **EXL & UCD Data & AI Hackathon 2026**  
+> **Challenge Track / 参赛赛题:** Legacy ETL/SAS to Azure Lakehouse (遗留 ETL/SAS 向现代湖仓架构自动化迁移)  
+> **Team / 参赛战队:** UCD Team (Challenge 03)  
+> **Project Period / 冲刺周期:** 2026/11/09 - 2026/11/13  
 
-Each legacy job is translated to PySpark and then **checked against the legacy system's own output**.
-The result is one of three honest labels:
+---
 
-| Level | Meaning |
-|---|---|
-| **Verified** | Translated entirely by fixed rules, and matches legacy on real sample data, adversarial data and empty tables |
-| **Tested** | Needed the LLM, and matches legacy on the same data |
-| **Needs review** | Anything else: still differs after 3 AI repairs, legacy could not run, or any error |
+## 1. Core Philosophy / 核心设计理念
 
-Core idea: *AI proposes, the compiler disposes.* The LLM never has the last word.
-Its code must pass the same reconciliation as rule-generated code.
+> ### **[Team First Principle: AI Proposes, the Compiler Disposes]**
+> Large Language Models (LLMs) never have the final say on production migration. LLM outputs must be either syntactically verified Intermediate Representations (IR) conforming to strict schemas, or PySpark scripts that pass row-by-row reconciliation against ground-truth outputs. Jobs failing automated reconciliation are permitted a maximum of 3 self-healing attempts before being degraded to `Needs review`. No defective code is ever permitted into the Gold production layer.
+>
+> ### **【团队研发第一铁律：AI Proposes, the Compiler Disposes】**
+> 大语言模型（LLM）永远不拥有代码与迁移的最终决定权。LLM 产出要么是经过语法检查并符合 Schema 约束的结构化 IR，要么是必须通过严格对账测试的 PySpark 脚本。未能通过自动化对账的作业最多允许自愈修正 3 次，逾期直接降级为 Needs review，绝不允许任何带病代码注入 Gold 生产层。
 
-## How it works
+---
 
+## 2. Team Members & Responsibilities / 团队成员与职责分工
+
+- **Tianyue Li / 李天悦**:
+  - Lakehouse architecture design & CI/CD automation pipeline.
+    湖仓架构设计与 CI/CD 自动化流水线。
+  - Bronze raw layer ingestion, Silver data contracts, and Gold production deployment governance.
+    Bronze 原始层摄取、Silver 数据契约引擎以及 Gold 生产部署门禁治理。
+- **Pin-Yun Kuo / 郭小妘**:
+  - Migration compiler kernel (`sqlglot` AST parsing & IR Schema v0).
+    迁移编译器核心引擎（`sqlglot` 语法树解析与 IR 结构定义）。
+  - Deterministic PySpark codegen, row-by-row reconciliation engine, and failure shrinking.
+    确定性代码生成器、逐行对账引擎与反例缩减器。
+- **Neeraj**:
+  - SQL Server benchmark baseline execution & ground-truth parquet generation (`oracle_output.parquet`).
+    本地 SQL Server 基准测试环境搭建与权威标准答案导出。
+  - Streamlit governance workbench & interactive executive UI.
+    Streamlit 交互式治理工作台与端到端血缘大屏。
+
+---
+
+## 3. Directory Structure Topology / 代码仓库目录拓扑
+
+```plaintext
+exl-migration-factory/
+├── .github/
+│   └── workflows/
+│       └── ci.yml               # [EN] GitHub Actions CI pipeline with reconciliation gates
+│                                # [CN] GitHub Actions 自动化对账 CI 门禁流水线
+├── cloud/                       # [EN] Lakehouse storage & deployment tier
+│                                # [CN] 湖仓架构与部署调度层
+│   ├── bronze_ingest.py         # [EN] Raw CSV -> Delta Lake (Bronze ingestion)
+│   │                            # [CN] CSV 到 Delta Lake 原始层摄取管道
+│   ├── silver_contracts.py      # [EN] Data Contracts enforcement & semantic cleansing
+│   │                            # [CN] 声明式数据契约验证与清洗引擎
+│   └── gold_deploy.py           # [EN] Production quality gate dispatcher for Gold layer
+│                                # [CN] 验证通过 Job 的 Gold 生产层自动化发布与门禁
+├── jobs/                        # [EN] 12 migration job packages (J01~J09, S01~S03)
+│                                # [CN] 12 个迁移作业独立包
+│   ├── J01/                     # [EN] Self-contained job package triplet
+│   │                            # [CN] 独立作业三元组 (legacy.sql, meta.yaml, oracle_output.parquet)
+│   │   ├── legacy.sql           # [EN] Unaltered legacy T-SQL code / 原始遗留 SQL
+│   │   ├── meta.yaml            # [EN] Job metadata & reconciliation schema / 作业元数据与对账声明
+│   │   └── oracle_output.parquet# [EN] Authoritative benchmark ground truth / 旧系统权威标准答案
+│   ├── ...                      # J02 to J09 (T-SQL)
+│   └── S01/ ... S03/            # S01 to S03 (SAS Actuarial scripts / SAS 精算作业)
+├── engine/                      # [EN] Migration Factory compiler kernel
+│                                # [CN] 迁移工厂核心编译器
+│   ├── parser.py                # [EN] sqlglot T-SQL AST parser / 语法树解析器
+│   ├── ir_schema.py             # [EN] Intermediate Representation Pydantic models / IR 规范定义
+│   ├── codegen.py               # [EN] Deterministic AST/IR to PySpark generator / 确定性代码生成器
+│   ├── llm_fallback.py          # [EN] Audited LLM fallback translator / 审计追踪 LLM 兜底翻译器
+│   ├── reconciler.py            # [EN] Row-by-row reconciliation engine / 逐行全外连接对账引擎
+│   └── shrinker.py              # [EN] Minimal reproducible counterexample shrinker / 失败测试反例缩减器
+├── ui/                          # [EN] Streamlit governance workbench & UI
+│                                # [CN] Streamlit 交互与治理工作台
+│   ├── app.py                   # [EN] Streamlit entrypoint / 主入口
+│   ├── mock_data/               # [EN] Decoupled state stubs (status_store.json) / 状态存储存根
+│   └── pages/                   # [EN] Overview, Lineage, Reconciliation & Business tabs / 大屏与详情页面
+├── data/                        # [EN] Lakehouse physical data (Git ignored)
+│                                # [CN] 湖仓物理存储目录 (Git 忽略，仅存样例)
+│   ├── raw/                     # [EN] Raw datasets (freMTPL2freq.csv, freMTPL2sev.csv)
+│   ├── bronze/                  # [EN] Delta Lake Bronze raw layer
+│   ├── silver/                  # [EN] Delta Lake Silver cleansed layer
+│   └── gold/                    # [EN] Delta Lake Gold business layer
+├── docs/                        # [EN] Official hackathon deliverables
+│                                # [CN] 参赛终验交付物
+│   ├── architecture_diagram.png # [EN] Single-page system architecture diagram / 单页系统架构图
+│   └── responsible_ai_note.pdf  # [EN] Single-page Responsible AI declaration / 单页 RAI 声明文档
+├── tests/                       # [EN] Automated test suite / 自动化测试套件
+├── requirements.txt             # [EN] Pinned global dependency manifest / 依赖锁定文件
+└── README.md                    # [EN] Evaluation & reproduction guide / 评委复现指南
 ```
-legacy.sql ──► parser ──► IR ──► code generator ──► PySpark ─┐
-                 │ (outside IR scope, with a reason)          ├─► run on Spark ─► compare ─► level
-                 └──────► LLM translator ──► PySpark ─────────┘        ▲             │ mismatch
-                                ▲                              legacy output         ▼
-                                └── shrunk counterexample (max 3 repairs) ◄── shrink to a few rows
-```
 
-- **Rule path**: `sqlglot` parses T-SQL; `engine/parser.py` builds a small language-neutral IR;
-  `engine/codegen.py` emits PySpark by fixed rules. Same IR in, same code out.
-- **SQL Server behaviours handled by the rules** (each was confirmed on a real SQL Server):
-  integer division and `AVG(int)` drop the fraction; decimal division truncates instead of rounding;
-  text comparison / `GROUP BY` ignore case and trailing spaces; `ISNULL` keeps its first argument's type;
-  `LEN` ignores trailing spaces; `ROUND(x, n, 1)` truncates.
-- **LLM path**: anything outside IR v1 (MERGE, window functions, stored procedures, all SAS).
-- **Reconciliation** (`engine/recon/compare.py`): row count → column totals → row-by-row.
-  Row order ignored; DECIMAL exact; FLOAT within 1e-9; no primary key → every distinct row must appear the same number of times.
-- **Adversarial data** (`engine/recon/advdata.py`): NULLs, repeated keys, mixed case, trailing spaces,
-  negatives, plus the constants each job compares against and their neighbours.
-- **Shrinking** (`engine/recon/shrink.py`): a failing input is cut down to the fewest rows that still fail.
+---
 
-### IR v1 scope (the honest boundary)
+## 4. Medallion Lakehouse Architecture / 奖牌湖仓分层物理契约
 
-Supported: one `SELECT` (CTEs and sub-queries in `FROM` allowed), `WHERE`, computed columns
-(arithmetic, `CASE`, `COALESCE`/`ISNULL`/`NULLIF`, `CAST`, common text functions, comparisons, `IN`, `BETWEEN`, `LIKE`),
-`INNER`/`LEFT JOIN`, `GROUP BY` with `SUM`/`COUNT`/`AVG`/`MIN`/`MAX`, `HAVING`.
+| Layer / 分层 | Storage & Format / 存储与格式 | Data Contract Specification / 契约规范 | Owner / 负责人 |
+| :--- | :--- | :--- | :--- |
+| **Bronze (原始层)** | Delta Lake<br>`data/bronze/` | Preserves raw schema. Strictly appends `_ingested_at` and `_source_file` audit columns. Enforces append-only.<br>保留原始结构，追加审计元数据，禁止修改内容，只允许追加。 | Tianyue Li / 李天悦 |
+| **Silver (清洗层)** | Delta Lake<br>`data/silver/` | Schema validation, type casting, safe null replacement, and SCD2 change tracking.<br>实施 Schema 强制验证、类型清洗、空值置换，支持 SCD2 维表追踪。 | Pin-Yun & Neeraj |
+| **Gold (业务层)** | Delta Lake<br>`data/gold/` | Production aggregate tables and actuarial triangles. ONLY accessible by `Verified`/`Tested` jobs with human approval sign-off.<br>精算三角形与 KPI 宽表；仅允许状态为 Verified/Tested 且经人工审批的作业写入。 | Tianyue Li / 李天悦 |
 
-Not supported (goes to the LLM path, with the reason recorded): `MERGE`, window functions, stored procedures and
-control flow, temp tables, `UNION`, `DISTINCT`, `TOP`, sub-queries in conditions, `SELECT *`, all SAS.
+---
 
-## Setup (Windows cmd)
+## 5. Quickstart & Reproduction Guide / 快速开始与评委复现指南
 
-Needs Python 3.12 and a Java runtime (8, 11, 17 or 21).
+### Step 1: Environment Setup / 环境准备与依赖安装
+Recommended Python 3.10+ / 建议使用 Python 3.10 以上版本：
+```bash
+# Clone the repository / 克隆代码仓库
+git clone https://github.com/Daniel-Leestar/exl-migration-factory.git
+cd exl-migration-factory
 
-```
+# Initialize virtual environment / 创建虚拟环境
 python -m venv .venv
-.venv\Scripts\pip install -r requirements.txt
-copy .env.example .env
-.venv\Scripts\python -m engine make-base --data-dir ..
+source .venv/bin/activate       # On Windows: .venv\Scripts\activate
+
+# Install dependencies / 安装全局锁定依赖
+pip install --upgrade pip
+pip install -r requirements.txt
 ```
 
-`make-base` samples `freMTPL2freq.csv` / `freMTPL2sev.csv` (expected one folder up) into `datasets/base/`.
-
-Optional services:
-
-- **SQL Server** as the live legacy system. `.env.example` points at SQL Server LocalDB
-  (`(localdb)\MSSQLLocalDB`); any SQL Server works by changing `MF_SQLSERVER_CONN`.
-  Without it, the answer files committed under `jobs/*/golden/` are used.
-- **Ollama** for the LLM path: `ollama pull qwen2.5-coder:3b`. Prompts stay on the machine.
-
-## Run
-
-```
-.venv\Scripts\python -m engine run-all
-.venv\Scripts\python -m engine run jobs\J04
-.venv\Scripts\python -m engine run-all --legacy golden --llm off
-.venv\Scripts\python -m pytest
+### Step 2: Download Dataset & Ingest Bronze Layer / 下载数据集并摄取 Bronze 原始层
+```bash
+# Ingest raw French motor insurance CSVs into Delta Lake Bronze layer
+# 将原始法国车险 CSV 数据摄取至 Delta Lake Bronze 原始层
+python cloud/bronze_ingest.py
 ```
 
-`--legacy golden --llm off` is the CI mode: no SQL Server, no model, only committed answer files.
-`--record-golden` saves SQL Server's outputs as answer files.
+### Step 3: Run Automated Test Suite / 执行自动化测试与对账验证
+```bash
+# Run test suite with pytest / 使用 pytest 运行全套测试
+pytest tests/ -v
 
-Drop any `.sql` file into `jobs/` and it runs through the same pipeline; what cannot be handled
-becomes *Needs review* with a reason. Nothing crashes.
-
-## Outputs (contract for the UI)
-
-```
-out/status.json              every job: level, path (ir | llm), reason, rules applied, repairs, datasets
-out/<job>/ir.json            the IR (rule path only)
-out/<job>/lineage.json       column-level lineage: "derived" (from IR) or "inferred, unverified" (LLM path)
-out/<job>/generated.py       the PySpark code; AI-written code starts with an AI-GENERATED banner
-out/<job>/recon_report.json  every attempt, per-dataset checks, sample differences, shrunk counterexample
-out/<job>/ai_log.jsonl       every prompt, answer, model name and timing (LLM path only)
+# Or use Python built-in runner / 或使用 Python 内置测试器
+python -m unittest discover -s tests
 ```
 
-## Responsible AI safeguards built into the code
+### Step 4: Launch Governance Dashboard / 启动 Streamlit 交互治理工作台
+```bash
+# Launch interactive web application / 启动前端交互看板
+streamlit run ui/app.py
+```
 
-- The LLM sees legacy code, table structures and **made-up rows only**. `describe_failure` refuses to put
-  values from non-synthetic data into a prompt (tested in `tests/test_tools.py`).
-- AI-written code is checked before it runs: no file access, no extra imports, no JVM access (`engine/sandbox.py`).
-  This is a guard rail, not a hardened sandbox.
-- Every AI call is logged. AI-path lineage is labelled unverified. Every job starts with human review "pending".
+---
 
-## Known limits
+## 6. Verification Status Tiers / 验证状态三等级定义
 
-- "Verified" means *matched on the data we tested*, not a mathematical proof.
-- `CAST(float AS decimal)` can differ on exact ties (SQL Server uses the binary value, Spark the printed one).
-- Text `<` / `>` and `MIN`/`MAX` on text follow Spark's ordering, not SQL Server's collation.
-- `REPLACE` is case-sensitive here, case-insensitive under SQL Server's default collation.
-- No SAS runtime is available, so SAS jobs have no legacy answers and stay *Needs review*.
-- Generated code that divides decimals sets `spark.sql.decimalOperations.allowPrecisionLoss=false`.
-
-## Data and tools declaration
-
-- Data: freMTPL2 (public French motor insurance data, no personal identifiers); adversarial data is generated.
-- Libraries: sqlglot (MIT), PySpark (Apache-2.0), pyodbc (MIT), PyYAML (MIT), pytest (MIT).
-- AI tools: Claude Code was used to help write this codebase; `qwen2.5-coder:3b` via Ollama is the translation model.
+- 🟢 **Verified (High Trust / 最高可信)**:
+  - Processed entirely via deterministic compiler path (sqlglot -> AST -> IR -> PySpark).
+  - 0 discrepancies in row-by-row reconciliation against SQL Server standard answers.
+  - 全程走确定性编译器路径，逐行对账与标准答案完全一致（差异数为 0）。
+- 🔵 **Tested (AI-Augmented / AI 增强验证)**:
+  - Handled via LLM fallback translator for complex dialect or SAS procedures.
+  - Validated with 100% reconciliation parity and bounded self-healing iterations.
+  - 由 LLM 辅助翻译，必须 100% 通过双轨对账与反例缩减测试。
+- 🟡/🔴 **Needs review (Honest Boundary / 诚实边界待审)**:
+  - Complex stored procedures or scripts where reconciliation failed after 3 self-healing attempts.
+  - Transparently marked to demonstrate responsible system boundaries.
+  - 自愈 3 次后仍未通过或不支持的语法，诚实展示系统边界，绝不带病上线。

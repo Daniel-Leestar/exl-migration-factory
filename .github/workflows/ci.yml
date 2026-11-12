@@ -1,0 +1,46 @@
+name: CI Pipeline
+
+# Trigger conditions / 触发条件: Push to main/develop branches, or Pull Request targeting main
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build, Verify Contracts & Reconciliation Gate
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out source code repository / 检出源码仓库
+      - name: Checkout Repository / 检出代码
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python runtime environment / 配置 Python 3.10 运行时
+      - name: Set up Python 3.10 / 配置 Python 3.10
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      # Step 3: Upgrade pip and install pinned dependencies / 升级 pip 并安装锁定依赖
+      - name: Install Dependencies / 安装环境依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # Step 4: Run Smoke and Bronze ingestion tests / 运行冒烟测试与 Bronze 原始摄取测试
+      - name: Run Smoke & Bronze Ingest Tests / 运行基础测试
+        run: |
+          pytest tests/test_smoke.py tests/test_bronze_ingest.py -v
+
+      # Step 5: Run Silver layer Data Contracts validation / 运行 Silver 层数据契约测试
+      - name: Run Data Contracts Test / 运行数据契约测试
+        run: |
+          pytest tests/test_silver_contracts.py -v
+
+      # Step 6: Run Automated Dual-Track Reconciliation Gate / 运行自动化双轨对账门禁 (强门禁阻断)
+      - name: Run Reconciliation Gate / 执行双轨对账门禁
+        run: |
+          pytest tests/test_reconciliation_gate.py -v

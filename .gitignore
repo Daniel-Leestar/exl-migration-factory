@@ -1,7 +1,72 @@
-.venv/
-out/
-.env
+# Python build artifacts and bytecode / Python 编译产物与字节码
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment / 虚拟环境
+.env
+.venv
+env/
+venv/
+ENV/
+
+# Testing & Coverage / 测试与覆盖率报告
 .pytest_cache/
+.coverage
+htmlcov/
+
+# IDE & OS specific files / IDE 与操作系统临时文件
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Data & Lakehouse storage directories / 数据湖仓存储物理目录
+data/raw/*
+!data/raw/.gitkeep
+data/bronze/*
+!data/bronze/.gitkeep
+data/silver/*
+!data/silver/.gitkeep
+data/gold/*
+!data/gold/.gitkeep
+data/quarantine/*
+!data/quarantine/.gitkeep
+data/synthetic/*
+!data/synthetic/.gitkeep
+
+# Parquet files: ignore large/temporary parquets, keep oracle ground truth in jobs/
+# Parquet 文件: 忽略大体积临时数据，保留 jobs/ 目录下的基准对账标准答案
+*.parquet
+!jobs/**/*.parquet
+
+# Delta Lake transaction logs / Delta Lake 事务日志
+_delta_log/
+
+# Temporary scratch files / 临时暂存文件
+*.tmp
+spec_dump.txt
+
+# Migration engine outputs and local settings / 迁移引擎输出与本地设置
+out/
 spark-warehouse/
