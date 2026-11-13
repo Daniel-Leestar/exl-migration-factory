@@ -1,0 +1,7 @@
+Region:string,Policies:int,Claims:int,ClaimRank:bigint
+ALPHA,13,715,1
+A,12,277,2
+Zed,4,107,3
+\N,3,107,3
+,3,56,5
+b,5,16,6

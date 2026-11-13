@@ -1,0 +1,13 @@
+job_id: J08
+name: Policy dimension SCD Type 2 (MERGE)
+source_dialect: tsql
+expected_path: LLM
+trap_category: MERGE semantics; effective-date boundaries
+sources:
+- table_name: dim_policy
+  schema: dbo
+- table_name: policy_changes
+  schema: dbo
+primary_keys: []
+engine:
+  output_table: dbo.dim_policy

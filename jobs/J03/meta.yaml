@@ -1,0 +1,26 @@
+job_id: J03
+name: Policies LEFT JOIN claims, zero-filled
+source_dialect: tsql
+expected_path: IR
+trap_category: NULLs produced by LEFT JOIN
+sources:
+- table_name: policy
+  schema: dbo
+- table_name: claims
+  schema: dbo
+primary_keys:
+- IDpol
+- Region
+columns:
+- name: IDpol
+  type: INT
+  compare_mode: exact
+- name: Region
+  type: VARCHAR
+  compare_mode: exact
+- name: TotalClaim
+  type: DECIMAL(38,2)
+  compare_mode: exact
+- name: ClaimCount
+  type: INT
+  compare_mode: exact

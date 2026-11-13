@@ -1,0 +1,23 @@
+job_id: J07
+name: Data quality check, ClaimNb vs actual claim rows
+source_dialect: tsql
+expected_path: IR
+trap_category: Finds the known ClaimNb inconsistency in freMTPL2
+sources:
+- table_name: policy
+  schema: dbo
+- table_name: claims
+  schema: dbo
+primary_keys:
+- IDpol
+- ClaimNb
+columns:
+- name: IDpol
+  type: INT
+  compare_mode: exact
+- name: ClaimNb
+  type: INT
+  compare_mode: exact
+- name: ActualClaims
+  type: INT
+  compare_mode: exact

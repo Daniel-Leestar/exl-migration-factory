@@ -1,8 +1,18 @@
-pyspark>=3.5.0
+# The engine is verified on Spark 3.5 only; Spark 4 changes default arithmetic behaviour (ANSI mode).
+# 引擎只在 Spark 3.5 上验证过；Spark 4 会改变默认的算术行为（ANSI 模式）。
+pyspark>=3.5.0,<4.0
 delta-spark>=3.0.0
 sqlglot>=20.0.0
 pytest>=8.0.0
 pyyaml>=6.0
 pandas>=2.0.0
 streamlit>=1.30.0
-
+# Reads/writes jobs/*/oracle_output.parquet (pandas.read_parquet needs it).
+# 读写 jobs/*/oracle_output.parquet（pandas.read_parquet 需要它）。
+pyarrow>=15.0.0
+# Optional: live SQL Server as the legacy system. Imported only when a connection is configured.
+# 可选：以真实 SQL Server 作为旧系统。仅在配置了连接时才会导入。
+pyodbc>=5.0.0
+# PySpark 3.5 toPandas() imports distutils, which Python 3.12 removed; setuptools provides it.
+# PySpark 3.5 的 toPandas() 需要 distutils，Python 3.12 已移除，由 setuptools 提供。
+setuptools<81; python_version >= "3.12"

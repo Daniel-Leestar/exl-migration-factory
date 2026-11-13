@@ -66,3 +66,7 @@ _delta_log/
 # Temporary scratch files / 临时暂存文件
 *.tmp
 spec_dump.txt
+
+# Migration engine outputs and local settings / 迁移引擎输出与本地设置
+out/
+spark-warehouse/
