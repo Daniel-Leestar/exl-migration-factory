@@ -1,0 +1,15 @@
+job_id: J09
+name: Region ranking report (stored procedure, temp table, RANK)
+source_dialect: tsql
+expected_path: LLM
+target_layer: gold
+category: Stored procedure
+trap_category: Tied ranks; procedural control flow
+sources:
+- table_name: policy
+  schema: dbo
+primary_keys:
+- Region
+engine:
+  ci_columns:
+  - Region

@@ -1,0 +1,7 @@
+VehBrand:string,AvgVehAge:int,AvgDrivAge:int,"AvgClaim:decimal(38,6)",Claims:int
+\N,47,31,122.811851,29
+,1,100,\N,0
+A,33,11,117.956395,91
+ALPHA,81,17,140.927368,61
+B,16,5,75.410357,32
+Zed,32,75,92.586800,26

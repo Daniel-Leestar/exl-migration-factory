@@ -118,4 +118,36 @@ exl-migration-factory/
 - **`sqlglot` (MIT)**: Deterministic T-SQL dialect parsing, semantic AST tree extraction, and column-level lineage graph generation.
 - **`PySpark` & `Delta Lake` (Apache-2.0)**: Distributed compute engine and ACID transaction lakehouse table format.
 - **`Streamlit` (Apache-2.0)**: Interactive web control plane for lineage exploration, reconciliation proof inspection, and human sign-off.
-- **LLM APIs (Azure OpenAI / Claude via API)**: Utilized strictly as fallback code proposal agents on code syntax, schema structures, and synthetic counterexample diffs. **Zero customer or PII data is ever transmitted to any external API.**
+- **Local LLM (`qwen2.5-coder:3b` via Ollama)**: Used strictly as a fallback code proposal agent on code syntax, schema structures, and synthetic counterexample diffs. It runs on the developer's machine; **no prompt is sent to an external API, and no customer or PII data is involved.**
+- **AI coding assistants used during development**: see [`docs/ai_tools_declaration.md`](docs/ai_tools_declaration.md).
+
+---
+
+## 6. Migration Engine, Human Sign-off & Dashboard / 迁移引擎、人工签核与仪表板
+
+Full engine documentation: [`docs/engine.md`](docs/engine.md). Needs a Java runtime (8, 11 or 17) for PySpark.
+引擎完整文档见 [`docs/engine.md`](docs/engine.md)。PySpark 需要 Java 运行环境（8、11 或 17）。
+
+```bash
+# Re-run all 12 jobs against the committed legacy answers, without SQL Server or an LLM
+# 使用已提交的旧系统答案重跑全部 12 个作业（无需 SQL Server 与 LLM）
+python -m engine run-all --legacy golden --llm off
+
+# Publish the status table, reconciliation reports and CI gate packages
+# 发布状态表、对账报告与 CI 门禁作业包
+python -m engine export
+
+# A named reviewer signs off a Verified / Tested job; only then may it reach Gold
+# 具名审阅人签核 Verified / Tested 作业，之后才允许进入 Gold 层
+python -m engine approve J05 --reviewer "Your Name" --notes "read code and report"
+
+# Read-only dashboard: status table, code side by side, lineage, reconciliation, analytics
+# 只读仪表板：状态表、新旧代码对照、血缘、对账报告、分析
+streamlit run ui/app.py
+```
+
+Current results / 当前结果: **7 Verified, 0 Tested, 5 Needs review** (see `ui/mock_data/status_store.json`).
+
+## 7. AI Tools & Existing Code Declaration / AI 工具与既有代码声明
+
+See [`docs/ai_tools_declaration.md`](docs/ai_tools_declaration.md).

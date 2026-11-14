@@ -1,0 +1,30 @@
+# Shared input table definitions (name -> column -> type).
+# 共用的輸入表結構(表名 -> 欄位 -> 型別)。
+policy:
+  IDpol: int
+  ClaimNb: int
+  Exposure: float
+  VehPower: int
+  VehAge: int
+  DrivAge: int
+  BonusMalus: int
+  VehBrand: string
+  VehGas: string
+  Area: string
+  Density: int
+  Region: string
+claims:
+  IDpol: int
+  ClaimAmount: decimal(18,2)
+dim_policy:
+  IDpol: int
+  BonusMalus: int
+  Area: string
+  ValidFrom: date
+  ValidTo: date
+  IsCurrent: int
+policy_changes:
+  IDpol: int
+  BonusMalus: int
+  Area: string
+  ChangeDate: date

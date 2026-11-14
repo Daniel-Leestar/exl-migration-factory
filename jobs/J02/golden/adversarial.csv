@@ -1,0 +1,8 @@
+IDpol:int,"TotalClaim:decimal(38,2)",ClaimCount:int,"LargeClaimTotal:decimal(38,2)"
+\N,10002.04,4,\N
+1,-1.43,6,\N
+2,41202.18,14,30000.03
+3,1.11,4,\N
+4,10099.99,3,\N
+5,11002.79,3,10000.01
+6,20998.10,6,\N

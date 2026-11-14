@@ -1,0 +1,185 @@
+{
+  "job_id": "J09",
+  "timestamp": "2026-11-14T16:21:06+00:00",
+  "execution_path": "LLM",
+  "overall_passed": false,
+  "iteration_count": 4,
+  "reason": "still differs from legacy after 3 repair(s): 0 missing, 0 extra, 17 different rows",
+  "dataset": "base",
+  "summary": {
+    "legacy_rows": 21,
+    "spark_rows": 21,
+    "count_diff": 0,
+    "mismatched_rows": 17
+  },
+  "field_checks": [
+    {
+      "column": "Policies",
+      "status": "PASSED",
+      "legacy_total": "3988",
+      "spark_total": "3988"
+    },
+    {
+      "column": "Claims",
+      "status": "PASSED",
+      "legacy_total": "793",
+      "spark_total": "793"
+    },
+    {
+      "column": "ClaimRank",
+      "status": "FAILED",
+      "legacy_total": "229",
+      "spark_total": "205"
+    }
+  ],
+  "counterexamples": [
+    {
+      "kind": "value_mismatch",
+      "primary_key": {
+        "Region": "LANGUEDOC-ROUSSILLON"
+      },
+      "cells": [
+        {
+          "column": "ClaimRank",
+          "legacy": "5",
+          "new": "4"
+        }
+      ]
+    },
+    {
+      "kind": "value_mismatch",
+      "primary_key": {
+        "Region": "PAYS-DE-LA-LOIRE"
+      },
+      "cells": [
+        {
+          "column": "ClaimRank",
+          "legacy": "6",
+          "new": "5"
+        }
+      ]
+    },
+    {
+      "kind": "value_mismatch",
+      "primary_key": {
+        "Region": "CENTRE"
+      },
+      "cells": [
+        {
+          "column": "ClaimRank",
+          "legacy": "7",
+          "new": "6"
+        }
+      ]
+    }
+  ],
+  "datasets": [
+    {
+      "name": "base",
+      "passed": false,
+      "legacy_status": null
+    },
+    {
+      "name": "adversarial",
+      "passed": false,
+      "legacy_status": null
+    },
+    {
+      "name": "empty",
+      "passed": true,
+      "legacy_status": null
+    }
+  ],
+  "shrinking_metadata": {
+    "dataset": "adversarial",
+    "original_input_rows": 40,
+    "shrunk_input_rows": 2,
+    "reruns": 7,
+    "inputs": {
+      "policy": {
+        "columns": [
+          "IDpol:int",
+          "ClaimNb:int",
+          "Exposure:float",
+          "VehPower:int",
+          "VehAge:int",
+          "DrivAge:int",
+          "BonusMalus:int",
+          "VehBrand:string",
+          "VehGas:string",
+          "Area:string",
+          "Density:int",
+          "Region:string"
+        ],
+        "rows": [
+          [
+            2,
+            101,
+            1.0,
+            50,
+            -1,
+            0,
+            50,
+            null,
+            "B",
+            "B",
+            -1,
+            "ALPHA"
+          ],
+          [
+            2,
+            -1,
+            0.015,
+            3,
+            10,
+            99,
+            0,
+            "ALPHA",
+            "A ",
+            "Alpha",
+            null,
+            "alpha "
+          ]
+        ]
+      }
+    },
+    "legacy_output": {
+      "columns": [
+        "Region:string",
+        "Policies:int",
+        "Claims:int",
+        "ClaimRank:bigint"
+      ],
+      "rows": [
+        [
+          "ALPHA",
+          2,
+          100,
+          1
+        ]
+      ]
+    },
+    "spark_output": {
+      "columns": [
+        "Region:string",
+        "Policies:bigint",
+        "Claims:bigint",
+        "ClaimRank:int"
+      ],
+      "rows": [
+        [
+          "ALPHA",
+          1,
+          101,
+          1
+        ],
+        [
+          "alpha ",
+          1,
+          -1,
+          2
+        ]
+      ]
+    }
+  }
+}

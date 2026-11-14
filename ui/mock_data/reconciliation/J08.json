@@ -1,0 +1,25 @@
+{
+  "job_id": "J08",
+  "timestamp": "2026-11-14T16:21:06+00:00",
+  "execution_path": "LLM",
+  "overall_passed": false,
+  "iteration_count": 4,
+  "reason": "still differs from legacy after 3 repair(s): code failed to run: TypeError: optional argument must be a context",
+  "dataset": null,
+  "summary": {
+    "legacy_rows": null,
+    "spark_rows": null,
+    "count_diff": null,
+    "mismatched_rows": null
+  },
+  "field_checks": [],
+  "counterexamples": [],
+  "datasets": [
+    {
+      "name": "empty",
+      "passed": false,
+      "legacy_status": null
+    }
+  ],
+  "shrinking_metadata": null
+}

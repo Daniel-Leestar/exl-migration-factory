@@ -1,0 +1,19 @@
+{
+  "job_id": "S02",
+  "timestamp": "2026-11-14T16:21:06+00:00",
+  "execution_path": "LLM",
+  "overall_passed": false,
+  "iteration_count": 0,
+  "reason": "no legacy output to compare against (unavailable: no answer file for dataset 'adversarial' in jobs\\S02\\golden; unavailable: no answer file for dataset 'base' in jobs\\S02\\golden; unavailable: no answer file for dataset 'empty' in jobs\\S02\\golden)",
+  "dataset": null,
+  "summary": {
+    "legacy_rows": null,
+    "spark_rows": null,
+    "count_diff": null,
+    "mismatched_rows": null
+  },
+  "field_checks": [],
+  "counterexamples": [],
+  "datasets": [],
+  "shrinking_metadata": null
+}

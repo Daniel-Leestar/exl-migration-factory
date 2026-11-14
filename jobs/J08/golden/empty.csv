@@ -1,0 +1,1 @@
+IDpol:int,BonusMalus:int,Area:string,ValidFrom:date,ValidTo:date,IsCurrent:int
