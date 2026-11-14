@@ -34,6 +34,13 @@ Test list / 測試清單
 - test_machine_paths_are_not_published
     Purpose: published reasons must not carry absolute paths of the machine that ran the jobs.
     Method: reason containing the project's absolute path; expect a project-relative path in the status table.
+- test_category_comes_from_meta
+    Purpose: the status table shows the job's declared category, and says so when none is declared.
+    Method: one job with `category: Cleansing` in meta.yaml, one without; expect "Cleansing" and "Unclassified".
+- test_dashboard_gets_code_and_lineage_for_every_level
+    Purpose: the dashboard must be able to show a failed attempt too, and must not show a stale one.
+    Method: Needs-review job with generated.py + lineage.json; export; expect both copied next to the status table.
+            Delete the sources, export again; expect the copies gone.
 """
 from __future__ import annotations
 
@@ -217,3 +224,29 @@ def test_machine_paths_are_not_published(tmp_path):
     paths = make_project(tmp_path, {"J1": {"level": "Needs review", "reason": f"no answer file in {absolute}"}})
     reason = run_export(paths)["store"]["jobs"][0]["reason"]
     assert str(tmp_path.resolve()) not in reason and reason.endswith(str(Path("jobs") / "J1" / "golden"))
+
+
+# Purpose: the status table shows the job's declared category, and says so when none is declared.
+# 目的:狀態表顯示 job 宣告的分類;沒有宣告時要明說。
+def test_category_comes_from_meta(tmp_path):
+    paths = make_project(tmp_path, {"J1": {"level": "Verified"}, "J2": {"level": "Verified"}})
+    meta_path = paths["jobs"] / "J1" / "meta.yaml"
+    meta_path.write_text(meta_path.read_text(encoding="utf-8") + "category: Cleansing\n", encoding="utf-8")
+    categories = {j["job_id"]: j["category"] for j in run_export(paths)["store"]["jobs"]}
+    assert categories == {"J1": "Cleansing", "J2": "Unclassified"}
+
+
+# Purpose: the dashboard must be able to show a failed attempt too, and must not show a stale one.
+# 目的:儀表板也要能顯示失敗的嘗試,且不得顯示過期的版本。
+def test_dashboard_gets_code_and_lineage_for_every_level(tmp_path):
+    paths = make_project(tmp_path, {"J1": {"level": "Needs review"}})
+    lineage = paths["out"] / "J1" / "lineage.json"
+    lineage.write_text(json.dumps({"job": "J1", "tables": ["t"]}), encoding="utf-8")
+    run_export(paths)
+    assert (paths["ui"] / "code" / "J1.py").read_text(encoding="utf-8") == GENERATED
+    assert json.loads((paths["ui"] / "lineage" / "J1.json").read_text(encoding="utf-8"))["tables"] == ["t"]
+
+    lineage.unlink()
+    (paths["out"] / "J1" / "generated.py").unlink()
+    run_export(paths)
+    assert not (paths["ui"] / "code" / "J1.py").exists() and not (paths["ui"] / "lineage" / "J1.json").exists()

@@ -2,6 +2,8 @@ job_id: J05
 name: Averages per vehicle brand
 source_dialect: tsql
 expected_path: IR
+target_layer: gold
+category: Aggregation
 trap_category: AVG over an integer column drops the fraction in T-SQL
 sources:
 - table_name: policy

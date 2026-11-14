@@ -2,6 +2,8 @@ job_id: J01
 name: Policy cleansing (truncate exposure, standardise codes, age bands)
 source_dialect: tsql
 expected_path: IR
+target_layer: silver
+category: Cleansing
 trap_category: Text comparison ignores upper/lower case in SQL Server
 sources:
 - table_name: policy

@@ -6,6 +6,8 @@ Commands / 指令:
   run         process one job folder or .sql/.sas file             處理單一 job
   run-all     process every job and write out/status.json          處理全部 job
   export      publish results in the team's interface formats      依團隊介面格式匯出結果
+  approve     record a human sign-off for a Verified/Tested job     記錄人工簽核
+  revoke      withdraw a sign-off                                   撤回簽核
 
 Settings come from environment variables or a `.env` file in the project root:
 設定來自環境變數,或專案根目錄的 `.env` 檔:
@@ -20,6 +22,7 @@ import os
 import sys
 from pathlib import Path
 
+from engine.approval import ApprovalError, approve, revoke
 from engine.datasets import load_base, make_base
 from engine.export import ExportError, export_all
 from engine.job import load_schemas
@@ -59,7 +62,30 @@ def main(argv: list[str] | None = None) -> int:
     publish.add_argument("--out", type=Path, default=ROOT / "out")
     publish.add_argument("--ui", type=Path, default=ROOT / "ui" / "mock_data", help="folder for status_store.json")
 
+    for name in ("approve", "revoke"):
+        sign = commands.add_parser(name, help="record a human sign-off" if name == "approve" else "withdraw a sign-off")
+        sign.add_argument("job_id")
+        sign.add_argument("--jobs", type=Path, default=ROOT / "jobs")
+        sign.add_argument("--ui", type=Path, default=ROOT / "ui" / "mock_data", help="folder holding status_store.json")
+        if name == "approve":
+            sign.add_argument("--reviewer", required=True, help="name of the person who read the code and the report")
+            sign.add_argument("--notes", default="")
+
     args = parser.parse_args(argv)
+    if args.command in ("approve", "revoke"):
+        store_path = args.ui / "status_store.json"
+        try:
+            if args.command == "approve":
+                result = approve(args.jobs, store_path, args.job_id, args.reviewer, args.notes)
+                print(f"{args.job_id}: approved by {result['reviewer']} at {result['timestamp']}")
+            else:
+                existed = revoke(args.jobs, store_path, args.job_id)
+                print(f"{args.job_id}: approval withdrawn" if existed else f"{args.job_id}: had no approval")
+        except ApprovalError as exc:
+            print(f"error: {exc}", file=sys.stderr)
+            return 2
+        return 0
+
     schemas = load_schemas((getattr(args, "jobs", ROOT / "jobs")) / "_schemas.yaml")
 
     if args.command == "make-base":

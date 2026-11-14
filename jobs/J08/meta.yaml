@@ -2,6 +2,8 @@ job_id: J08
 name: Policy dimension SCD Type 2 (MERGE)
 source_dialect: tsql
 expected_path: LLM
+target_layer: silver
+category: Dimension (SCD2)
 trap_category: MERGE semantics; effective-date boundaries
 sources:
 - table_name: dim_policy

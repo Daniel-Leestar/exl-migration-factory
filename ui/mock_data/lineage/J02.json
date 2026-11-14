@@ -1,0 +1,47 @@
+{
+  "job": "J02",
+  "method": "ir",
+  "confidence": "derived",
+  "tables": [
+    "claims"
+  ],
+  "outputs": {
+    "IDpol": {
+      "sources": [
+        "claims.IDpol"
+      ],
+      "expression": "c.IDpol",
+      "operations": []
+    },
+    "TotalClaim": {
+      "sources": [
+        "claims.ClaimAmount"
+      ],
+      "expression": "SUM(c.ClaimAmount)",
+      "operations": [
+        "aggregate:SUM"
+      ]
+    },
+    "ClaimCount": {
+      "sources": [],
+      "expression": "COUNT(*)",
+      "operations": [
+        "aggregate:COUNT"
+      ]
+    },
+    "LargeClaimTotal": {
+      "sources": [
+        "claims.ClaimAmount"
+      ],
+      "expression": "SUM(CASE WHEN (c.ClaimAmount > 10000) THEN c.ClaimAmount END)",
+      "operations": [
+        "aggregate:SUM",
+        "case"
+      ]
+    }
+  },
+  "row_filters": [],
+  "group_by": [
+    "claims.IDpol"
+  ]
+}

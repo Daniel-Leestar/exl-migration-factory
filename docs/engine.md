@@ -113,14 +113,43 @@ ui/mock_data/status_store.json           status table for the UI and the Gold de
 ui/mock_data/reconciliation/<job>.json   reconciliation report per job
 jobs/<job>/oracle_output.parquet         legacy answer on the real-data sample   (Verified / Tested only)
 jobs/<job>/solution.py                   generated code + run_job(spark)         (Verified / Tested only)
+ui/mock_data/code/<job>.py               last PySpark attempt, whatever its level (for the dashboard)
+ui/mock_data/lineage/<job>.json          lineage (for the dashboard)
 ```
 
-- `human_approval.approved` is always written as `false`: approval is a human action, never a machine result.
+- `human_approval` is `approved: false` unless a valid sign-off is recorded (next section): approval is a
+  human action, never a machine result.
+- `category` in the status table comes from `category` in the job's `meta.yaml`.
 - A job that drops to *Needs review* has its exported `solution.py` / `oracle_output.parquet` removed,
   so the CI gate never checks stale code. Hand-written solutions are left alone.
 - `solution.py` loads its inputs from `datasets/base/*.csv`, the same sample the answer file was made from.
 - Deviation from the contract: `out/<job>/ir.json` keeps the engine's own typed node tree, not the v0
   `pipeline_ast` shape, because v0 stores expressions as text and cannot carry the type rules.
+
+## Human sign-off (`python -m engine approve`)
+
+The Gold deployment gate (`cloud/gold_deploy.py`) only promotes jobs that are Verified / Tested **and**
+approved by a person. A reviewer reads the code and the reconciliation report in the dashboard, then runs:
+
+```
+.venv\Scripts\python -m engine approve J05 --reviewer "Your Name" --notes "read code and report"
+.venv\Scripts\python -m engine revoke J05
+```
+
+- Refused for *Needs review* jobs, for a blank reviewer name, and for jobs with no published `solution.py`.
+- Sign-offs are stored in `jobs/approvals.json` together with the SHA-256 of the reviewed `solution.py`.
+- A sign-off stops counting as soon as the published code changes or the job stops passing;
+  the next `export` then writes `approved: false` with the reason in `notes`.
+
+## Dashboard (`streamlit run ui/app.py`)
+
+```
+.venv\Scripts\python -m streamlit run ui\app.py
+```
+
+Read-only. Three pages: **Overview** (headline numbers and the status table), **Job detail** (legacy code next
+to PySpark, lineage graph, reconciliation report) and **Analytics** (by dialect and by path, plus why jobs
+still need review). It reads only committed files under `ui/mock_data/` and `jobs/`, so it works on a fresh clone.
 
 ## Engine outputs (`out/`, not committed)
 

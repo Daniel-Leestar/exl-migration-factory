@@ -1,0 +1,60 @@
+{
+  "job": "J01",
+  "method": "ir",
+  "confidence": "derived",
+  "tables": [
+    "policy"
+  ],
+  "outputs": {
+    "IDpol": {
+      "sources": [
+        "policy.IDpol"
+      ],
+      "expression": "p.IDpol",
+      "operations": []
+    },
+    "ExposureTrunc": {
+      "sources": [
+        "policy.Exposure"
+      ],
+      "expression": "TRUNCATE(CAST(p.Exposure AS decimal(10,6)), 2)",
+      "operations": [
+        "cast",
+        "function:TRUNCATE"
+      ]
+    },
+    "VehBrand": {
+      "sources": [
+        "policy.VehBrand"
+      ],
+      "expression": "UPPER(LTRIM(RTRIM(p.VehBrand)))",
+      "operations": [
+        "function:LTRIM",
+        "function:RTRIM",
+        "function:UPPER"
+      ]
+    },
+    "FuelCode": {
+      "sources": [
+        "policy.VehGas"
+      ],
+      "expression": "CASE WHEN (p.VehGas = 'diesel') THEN 'D' WHEN (p.VehGas = 'regular') THEN 'R' ELSE 'U' END",
+      "operations": [
+        "case"
+      ]
+    },
+    "AgeBand": {
+      "sources": [
+        "policy.DrivAge"
+      ],
+      "expression": "CASE WHEN (p.DrivAge < 25) THEN '18-24' WHEN (p.DrivAge < 40) THEN '25-39' WHEN (p.DrivAge < 60) THEN '40-59' ELSE '60+' END",
+      "operations": [
+        "case"
+      ]
+    }
+  },
+  "row_filters": [
+    "policy.Exposure"
+  ],
+  "group_by": []
+}
