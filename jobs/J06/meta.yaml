@@ -2,6 +2,8 @@ job_id: J06
 name: Risk tier from BonusMalus
 source_dialect: tsql
 expected_path: IR
+target_layer: gold
+category: Classification
 trap_category: Boundary values; NULL falls into ELSE
 sources:
 - table_name: policy

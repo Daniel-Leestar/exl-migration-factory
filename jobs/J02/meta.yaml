@@ -2,6 +2,8 @@ job_id: J02
 name: Claim total and count per policy
 source_dialect: tsql
 expected_path: IR
+target_layer: gold
+category: Aggregation
 trap_category: SUM over no rows is NULL, not 0
 sources:
 - table_name: claims

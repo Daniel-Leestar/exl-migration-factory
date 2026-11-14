@@ -159,3 +159,35 @@ streamlit run ui/app.py
   - Complex stored procedures or scripts where reconciliation failed after 3 self-healing attempts.
   - Transparently marked to demonstrate responsible system boundaries.
   - 自愈 3 次后仍未通过或不支持的语法，诚实展示系统边界，绝不带病上线。
+
+---
+
+## 7. Migration Engine, Human Sign-off & Dashboard / 迁移引擎、人工签核与仪表板
+
+Full engine documentation: [`docs/engine.md`](docs/engine.md). Needs a Java runtime (8, 11 or 17) for PySpark.
+引擎完整文档见 [`docs/engine.md`](docs/engine.md)。PySpark 需要 Java 运行环境（8、11 或 17）。
+
+```bash
+# Re-run all 12 jobs against the committed legacy answers, without SQL Server or an LLM
+# 使用已提交的旧系统答案重跑全部 12 个作业（无需 SQL Server 与 LLM）
+python -m engine run-all --legacy golden --llm off
+
+# Publish the status table, reconciliation reports and CI gate packages
+# 发布状态表、对账报告与 CI 门禁作业包
+python -m engine export
+
+# A named reviewer signs off a Verified / Tested job; only then may it reach Gold
+# 具名审阅人签核 Verified / Tested 作业，之后才允许进入 Gold 层
+python -m engine approve J05 --reviewer "Your Name" --notes "read code and report"
+
+# Read-only dashboard: status table, code side by side, lineage, reconciliation, analytics
+# 只读仪表板：状态表、新旧代码对照、血缘、对账报告、分析
+streamlit run ui/app.py
+```
+
+Current results / 当前结果: **7 Verified, 0 Tested, 5 Needs review** (see `ui/mock_data/status_store.json`).
+
+## 8. AI Tools & Existing Code Declaration / AI 工具与既有代码声明
+
+See [`docs/ai_tools_declaration.md`](docs/ai_tools_declaration.md).
+

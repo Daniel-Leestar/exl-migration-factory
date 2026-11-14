@@ -16,13 +16,13 @@ Test list / 測試清單
     Method: 2 T-SQL (Verified, Needs review) + 1 SAS (Needs review); expect exact counts per level.
 - test_job_files_prefer_published_solution
     Purpose: show the code that passed reconciliation, not a later local attempt.
-    Method: both solution.py and out/<job>/generated.py exist; expect solution.py content and its label.
+    Method: both solution.py and the exported last attempt exist; expect solution.py content and its label.
 - test_job_without_legacy_source_is_an_error
     Purpose: a job folder with nothing to migrate is reported, not rendered blank.
     Method: folder with only meta.yaml; expect UiDataError.
 - test_lineage_falls_back_to_declared_tables
     Purpose: without a local run the dashboard still shows table-level lineage and says it is only declared.
-    Method: no out/ folder; expect tables from meta.yaml, confidence mentions "table level", DOT has table -> job.
+    Method: no published lineage; expect tables from meta.yaml, confidence mentions "table level", DOT has table -> job.
 - test_lineage_dot_draws_column_edges
     Purpose: derived lineage must be drawn column to column.
     Method: lineage with one output from two sources; expect both edges in the DOT text.
@@ -94,10 +94,11 @@ def test_breakdown_counts_by_dialect():
 # 目的:顯示通過對帳的程式,而不是之後的本機嘗試。
 def test_job_files_prefer_published_solution(tmp_path):
     folder = make_job(tmp_path)
-    (tmp_path / "out" / "J1").mkdir(parents=True)
-    (tmp_path / "out" / "J1" / "generated.py").write_text("local attempt", encoding="utf-8")
+    attempt = tmp_path / "ui" / "mock_data" / "code" / "J1.py"
+    attempt.parent.mkdir(parents=True)
+    attempt.write_text("last attempt", encoding="utf-8")
     files = load_job_files(tmp_path, "J1")
-    assert files["generated"] == "local attempt" and "not published" in files["generated_origin"]
+    assert files["generated"] == "last attempt" and "did not pass" in files["generated_origin"]
 
     (folder / "solution.py").write_text("published", encoding="utf-8")
     files = load_job_files(tmp_path, "J1")

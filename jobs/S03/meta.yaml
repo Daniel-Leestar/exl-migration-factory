@@ -2,6 +2,8 @@ job_id: S03
 name: Loss summary per region (PROC SQL + PROC MEANS)
 source_dialect: sas
 expected_path: LLM
+target_layer: gold
+category: SAS PROC
 trap_category: Missing values are handled differently by PROC MEANS and SQL
 sources:
 - table_name: policy

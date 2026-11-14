@@ -6,13 +6,17 @@ Reads what `run-all` left in the output folder and writes, without re-running an
 - ui/mock_data/reconciliation/<job>.json    one reconciliation report per job
 - jobs/<job>/oracle_output.parquet          the legacy answer on the real-data sample
 - jobs/<job>/solution.py                    the PySpark code with a `run_job(spark)` entry point for the CI gate
-The last two are written only for jobs whose level is Verified or Tested.
+- ui/mock_data/code/<job>.py                the last PySpark attempt, whatever its level (for the dashboard)
+- ui/mock_data/lineage/<job>.json           the job's lineage (for the dashboard)
+The Parquet answer and solution.py are written only for jobs whose level is Verified or Tested.
 讀取 `run-all` 留在輸出資料夾的結果並寫出下列檔案,不會重跑任何 job:
 - ui/mock_data/status_store.json            UI 與 Gold 部署門禁讀取的狀態表
 - ui/mock_data/reconciliation/<job>.json    每個 job 一份對帳報告
 - jobs/<job>/oracle_output.parquet          舊系統在真實資料樣本上的答案
 - jobs/<job>/solution.py                    帶有 `run_job(spark)` 進入點的 PySpark 程式,供 CI 門禁使用
-後兩者只為等級是 Verified 或 Tested 的 job 產生。
+- ui/mock_data/code/<job>.py                最後一次產生的 PySpark,不論等級(給儀表板看)
+- ui/mock_data/lineage/<job>.json           job 的 lineage(給儀表板看)
+Parquet 答案與 solution.py 只為等級是 Verified 或 Tested 的 job 產生。
 """
 from __future__ import annotations
 
@@ -22,11 +26,11 @@ from pathlib import Path
 
 import yaml
 
+from engine.approval import PASSING_LEVELS, ApprovalError, approval_for
 from engine.job import Job, JobError, load_job
 from engine.legacy.runner import golden_dir
 from engine.model import Column, Table, decimal_parts, is_decimal, read_table
 
-PASSING_LEVELS = ("Verified", "Tested")
 SOLUTION_MARKER = "# AUTO-EXPORTED by engine/export.py"
 BASE_DATASET = "base"
 SAMPLE_LIMIT = 3
@@ -63,10 +67,11 @@ def export_all(out_dir: Path, jobs_dir: Path, base_dir: Path, ui_dir: Path, sche
         # 原因文字可能帶有執行機器上的絕對路徑;對外發布時改成相對於專案的路徑。
         entry = {**entry, "reason": _relative_paths(entry.get("reason") or "", jobs_dir.resolve().parent)}
         report = _read_json(out_dir / job_id / "recon_report.json") or {}
-        records.append(status_record(entry, report))
         _write_json(ui_dir / "reconciliation" / f"{job_id}.json", reconciliation_report(entry, report, now))
+        _publish_for_dashboard(out_dir / job_id, ui_dir, job_id)
         job_folder = jobs_dir / job_id
         if not job_folder.is_dir():
+            records.append(status_record(entry, report))
             continue  # a bare .sql/.sas file has no package folder to publish into
         try:
             if entry.get("level") in PASSING_LEVELS:
@@ -79,29 +84,37 @@ def export_all(out_dir: Path, jobs_dir: Path, base_dir: Path, ui_dir: Path, sche
             # 不留下寫到一半的套件讓 CI 門禁撿到。
             _remove_gate_package(job_folder)
             problems[job_id] = str(exc)
+        # Built after the package is settled: an approval only holds for the code that is published right now.
+        # 等套件定案後才組這一列:核可只對「此刻已發布」的那份程式有效。
+        try:
+            approval = approval_for(jobs_dir, job_id, entry.get("level", "Needs review"))
+        except ApprovalError as exc:
+            approval = None
+            problems[job_id] = str(exc)
+        records.append(status_record(entry, report, approval, _category(job_folder)))
 
     store = {"updated_at": now, "metrics": _metrics(records), "jobs": records}
     _write_json(ui_dir / "status_store.json", store)
     return {"store": store, "gate_jobs": gate_jobs, "problems": problems}
 
 
-def status_record(entry: dict, report: dict) -> dict:
-    """One row of the status table. Human approval always starts as not approved.
-    狀態表的一列。人工核可一律從「未核可」開始。
+def status_record(entry: dict, report: dict, approval: dict | None = None, category: str | None = None) -> dict:
+    """One row of the status table. Without a recorded sign-off the job is not approved.
+    狀態表的一列。沒有簽核記錄時,job 一律是「未核可」。
     """
     level = entry.get("level", "Needs review")
     path = entry.get("path")
     record = {
         "job_id": entry["id"],
         "name": entry.get("title") or entry["id"],
-        "category": "Unclassified",
+        "category": category or "Unclassified",
         "dialect": _DIALECT_LABELS.get(entry.get("language"), str(entry.get("language") or "unknown")),
         "path": path.upper() if path else None,
         "status": level,
         "reconciliation_passed": level in PASSING_LEVELS,
         "discrepancies": _discrepancies(report),
         "reason": entry.get("reason") or "",
-        "human_approval": {"approved": False, "reviewer": None, "timestamp": None, "notes": ""},
+        "human_approval": approval or {"approved": False, "reviewer": None, "timestamp": None, "notes": ""},
     }
     if path == "llm":
         record["llm_iterations"] = len(report.get("attempts", []))
@@ -256,6 +269,30 @@ def _publish_gate_package(job: Job, job_out: Path, base_dir: Path, schemas: dict
     meta_path.write_text(yaml.safe_dump(meta, sort_keys=False, allow_unicode=True), encoding="utf-8")
     write_parquet(oracle, folder / "oracle_output.parquet")
     (folder / "solution.py").write_text(solution, encoding="utf-8", newline="\n")
+
+
+def _publish_for_dashboard(job_out: Path, ui_dir: Path, job_id: str) -> None:
+    """Copy the last PySpark attempt and the lineage next to the status table, or remove stale copies.
+    把最後一次的 PySpark 與 lineage 複製到狀態表旁;來源不存在時移除過期的副本。
+    """
+    for source, target in ((job_out / "generated.py", ui_dir / "code" / f"{job_id}.py"),
+                           (job_out / "lineage.json", ui_dir / "lineage" / f"{job_id}.json")):
+        if source.exists():
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
+        else:
+            target.unlink(missing_ok=True)
+
+
+def _category(job_folder: Path) -> str | None:
+    """The job's `category` from meta.yaml, if it has one.
+    meta.yaml 裡的 `category`(若有)。
+    """
+    meta_path = job_folder / "meta.yaml"
+    if not meta_path.exists():
+        return None
+    meta = yaml.safe_load(meta_path.read_text(encoding="utf-8")) or {}
+    return str(meta["category"]) if meta.get("category") else None
 
 
 def _remove_gate_package(folder: Path) -> None:

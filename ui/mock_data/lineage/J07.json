@@ -1,0 +1,43 @@
+{
+  "job": "J07",
+  "method": "ir",
+  "confidence": "derived",
+  "tables": [
+    "claims",
+    "policy"
+  ],
+  "outputs": {
+    "IDpol": {
+      "sources": [
+        "policy.IDpol"
+      ],
+      "expression": "p.IDpol",
+      "operations": []
+    },
+    "ClaimNb": {
+      "sources": [
+        "policy.ClaimNb"
+      ],
+      "expression": "p.ClaimNb",
+      "operations": []
+    },
+    "ActualClaims": {
+      "sources": [
+        "claims.IDpol"
+      ],
+      "expression": "COUNT(c.IDpol)",
+      "operations": [
+        "aggregate:COUNT"
+      ]
+    }
+  },
+  "row_filters": [
+    "claims.IDpol",
+    "policy.ClaimNb",
+    "policy.IDpol"
+  ],
+  "group_by": [
+    "policy.ClaimNb",
+    "policy.IDpol"
+  ]
+}

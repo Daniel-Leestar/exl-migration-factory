@@ -2,6 +2,8 @@ job_id: S02
 name: Running claim total per policy (RETAIN)
 source_dialect: sas
 expected_path: LLM
+target_layer: gold
+category: SAS DATA step
 trap_category: Must be rewritten as a Spark window
 sources:
 - table_name: claims

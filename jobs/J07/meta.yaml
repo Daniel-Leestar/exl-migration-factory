@@ -2,6 +2,8 @@ job_id: J07
 name: Data quality check, ClaimNb vs actual claim rows
 source_dialect: tsql
 expected_path: IR
+target_layer: silver
+category: Data quality
 trap_category: Finds the known ClaimNb inconsistency in freMTPL2
 sources:
 - table_name: policy

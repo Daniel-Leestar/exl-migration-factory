@@ -2,6 +2,8 @@ job_id: J03
 name: Policies LEFT JOIN claims, zero-filled
 source_dialect: tsql
 expected_path: IR
+target_layer: silver
+category: Join
 trap_category: NULLs produced by LEFT JOIN
 sources:
 - table_name: policy

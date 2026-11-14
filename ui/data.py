@@ -60,6 +60,7 @@ def job_rows(store: dict) -> list[dict]:
         rows.append({
             "Job": job["job_id"],
             "Name": job.get("name", ""),
+            "Category": job.get("category", ""),
             "Dialect": job.get("dialect", ""),
             "Path": job.get("path", ""),
             "Status": job.get("status", ""),
@@ -67,6 +68,7 @@ def job_rows(store: dict) -> list[dict]:
             "Discrepancies": job.get("discrepancies"),
             "LLM iterations": job.get("llm_iterations"),
             "Human approved": bool(approval.get("approved")),
+            "Reviewer": approval.get("reviewer") or "",
             "Reason": job.get("reason", ""),
         })
     return rows
@@ -84,8 +86,9 @@ def load_job_files(root: Path, job_id: str) -> dict:
     """Legacy source, migrated PySpark (if any) and meta.yaml of one job.
     單一 job 的舊程式、遷移後的 PySpark(若有)與 meta.yaml。
 
-    The migrated code comes from the published `solution.py` first, then from the local run folder `out/`.
-    遷移後的程式優先取已發布的 `solution.py`,其次取本機執行資料夾 `out/`。
+    The migrated code comes from the published `solution.py` first, then from the last attempt that
+    `engine export` copied next to the status table.
+    遷移後的程式優先取已發布的 `solution.py`,其次取 `engine export` 複製到狀態表旁的最後一次嘗試。
     """
     folder = Path(root) / "jobs" / _safe_id(job_id)
     legacy = next((p for p in (folder / "legacy.sql", folder / "legacy.sas") if p.exists()), None)
@@ -97,7 +100,7 @@ def load_job_files(root: Path, job_id: str) -> dict:
     generated, origin = None, None
     candidates = (
         (folder / "solution.py", "published solution.py (passed reconciliation)"),
-        (Path(root) / "out" / job_id / "generated.py", "last local attempt (not published)"),
+        (Path(root) / "ui" / "mock_data" / "code" / f"{job_id}.py", "last attempt (did not pass reconciliation)"),
     )
     for path, label in candidates:
         if path.exists():
@@ -113,10 +116,10 @@ def load_job_files(root: Path, job_id: str) -> dict:
 
 
 def load_lineage(root: Path, job_id: str, meta: dict) -> dict:
-    """Column-level lineage from the last local run, else table-level lineage from meta.yaml.
-    優先取最近一次本機執行的欄位級 lineage,否則用 meta.yaml 的表級 lineage。
+    """Lineage published by `engine export`, else table-level lineage from meta.yaml.
+    優先取 `engine export` 發布的 lineage,否則用 meta.yaml 的表級 lineage。
     """
-    path = Path(root) / "out" / _safe_id(job_id) / "lineage.json"
+    path = Path(root) / "ui" / "mock_data" / "lineage" / f"{_safe_id(job_id)}.json"
     if path.exists():
         lineage = _read_json(path, "lineage")
         lineage.setdefault("outputs", {})

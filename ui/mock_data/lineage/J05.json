@@ -1,0 +1,61 @@
+{
+  "job": "J05",
+  "method": "ir",
+  "confidence": "derived",
+  "tables": [
+    "claims",
+    "policy"
+  ],
+  "outputs": {
+    "VehBrand": {
+      "sources": [
+        "policy.VehBrand"
+      ],
+      "expression": "p.VehBrand",
+      "operations": []
+    },
+    "AvgVehAge": {
+      "sources": [
+        "policy.VehAge"
+      ],
+      "expression": "AVG(p.VehAge)",
+      "operations": [
+        "aggregate:AVG"
+      ]
+    },
+    "AvgDrivAge": {
+      "sources": [
+        "policy.DrivAge"
+      ],
+      "expression": "AVG(p.DrivAge)",
+      "operations": [
+        "aggregate:AVG"
+      ]
+    },
+    "AvgClaim": {
+      "sources": [
+        "claims.ClaimAmount"
+      ],
+      "expression": "AVG(c.ClaimAmount)",
+      "operations": [
+        "aggregate:AVG"
+      ]
+    },
+    "Claims": {
+      "sources": [
+        "claims.IDpol"
+      ],
+      "expression": "COUNT(c.IDpol)",
+      "operations": [
+        "aggregate:COUNT"
+      ]
+    }
+  },
+  "row_filters": [
+    "claims.IDpol",
+    "policy.IDpol"
+  ],
+  "group_by": [
+    "policy.VehBrand"
+  ]
+}

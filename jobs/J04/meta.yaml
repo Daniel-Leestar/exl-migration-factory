@@ -2,6 +2,8 @@ job_id: J04
 name: Share of policies with a claim per region
 source_dialect: tsql
 expected_path: IR
+target_layer: gold
+category: Aggregation
 trap_category: Integer division drops the fraction
 sources:
 - table_name: policy

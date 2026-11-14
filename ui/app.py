@@ -2,7 +2,9 @@
 Migration Factory 儀表板(Streamlit)。在專案根目錄執行:`streamlit run ui/app.py`。
 
 Read-only: it shows what `python -m engine export` published and never changes a status or an approval.
+Approvals are recorded with `python -m engine approve <job> --reviewer <name>`.
 唯讀:只顯示 `python -m engine export` 發布的結果,不會更改任何狀態或核可。
+核可請用 `python -m engine approve <job> --reviewer <名字>` 記錄。
 """
 from __future__ import annotations
 
@@ -55,7 +57,8 @@ def overview(store: dict) -> None:
                  height=35 * (len(shown) + 1) + 3)
     if not ready:
         st.warning("No job has human approval yet, so the Gold deploy will not promote anything. "
-                   "A machine result never counts as an approval.")
+                   "A machine result never counts as an approval. "
+                   "Record one with: python -m engine approve <job> --reviewer <name>")
 
 
 def report_section(report: dict | None) -> None:
@@ -102,6 +105,10 @@ def job_detail(store: dict) -> None:
     cells[1].metric("Path", job.get("path", ""))
     cells[2].metric("Dialect", job.get("dialect", ""))
     cells[3].metric("Human approval", "Approved" if approval.get("approved") else "Not approved")
+    if approval.get("approved"):
+        st.success(f'Approved by {approval.get("reviewer")} at {approval.get("timestamp")}. {approval.get("notes", "")}')
+    elif approval.get("notes"):
+        st.warning(approval["notes"])
     if meta.get("trap_category"):
         st.caption(f'Known trap: {meta["trap_category"]}')
 
