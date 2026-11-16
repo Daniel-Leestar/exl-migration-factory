@@ -43,17 +43,11 @@ Thumbs.db
 
 # Data & Lakehouse storage directories / 数据湖仓存储物理目录
 data/raw/*
-!data/raw/.gitkeep
 data/bronze/*
-!data/bronze/.gitkeep
 data/silver/*
-!data/silver/.gitkeep
 data/gold/*
-!data/gold/.gitkeep
 data/quarantine/*
-!data/quarantine/.gitkeep
 data/synthetic/*
-!data/synthetic/.gitkeep
 
 # Parquet files: ignore large/temporary parquets, keep oracle ground truth in jobs/
 # Parquet 文件: 忽略大体积临时数据，保留 jobs/ 目录下的基准对账标准答案
@@ -87,3 +81,6 @@ docs/error-log.md
 docs/specs/
 EXL*.pdf
 EXL*.docx
+
+# Video script: submission prep, kept locally only. / 影片脚本:提交准备用,只留在本机。
+docs/demo_script.md

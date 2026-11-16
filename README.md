@@ -6,8 +6,7 @@
 > **Team / 战队:** DNA  
 > **Team Members & Ownership / 团队成员与分工:**
 > - **Tianyue Li / 李天悦 (DevOps & Lakehouse Lead)**: Cloud lakehouse architecture, Bronze ingestion, Silver data contracts & quarantine routing, Gold governance admission gates, CI/CD automated reconciliation pipeline, and FinOps/SLA alerts.
-> - **Pin-Yun Kuo / 郭小妘 (Compiler Lead)**: Deterministic migration engine, `sqlglot` AST parsing, IR Schema v0, deterministic PySpark codegen, row-by-row reconciliation engine, and minimal failure shrinker.
-> - **Neeraj (Benchmarking & UI Lead)**: SQL Server 2022 Docker baseline execution, ground-truth `.parquet` export, and Streamlit interactive control plane (lineage graph, reconciliation reports and analytics).
+> - **Pin-Yun Kuo / 郭小妘 (Team Lead, Migration Engine & Dashboard)**: Migration engine (`sqlglot` parsing, typed IR, rule-based PySpark codegen, reconciliation, counterexample shrinking, local-LLM path), legacy answers recorded from SQL Server, human sign-off, and the Streamlit dashboard.
 
 ---
 
@@ -89,18 +88,16 @@ exl-migration-factory/
 │   ├── silver/                  # [EN] Silver Delta Lake tables
 │   ├── quarantine/              # [EN] Dead-Letter Quarantine isolation
 │   └── gold/                    # [EN] Production Gold Marts & SLA alert logs
-├── docs/                        # [EN] Hackathon submission deliverables (Diagrams, Demo script, Deck)
+├── docs/                        # [EN] Architecture diagram, Responsible AI note, engine guide
 │   ├── architecture_diagram.svg # [EN] 1920x1080 High-resolution vector architecture diagram
 │   ├── architecture_diagram.mmd # [EN] Mermaid source code for architecture topology
-│   ├── responsible_ai_note.md   # [EN] Single-page Responsible AI note
-│   ├── engine.md                # [EN] Migration engine, dashboard and settings
-│   ├── ai_tools_declaration.md  # [EN] AI tools and existing code used (required by the organisers)
-│   └── demo_script.md           # [EN] 3-minute demo: what to click and what to say
+│   ├── responsible_ai_note.md   # [EN] One-page Responsible AI note
+│   └── engine.md                # [EN] Migration engine, dashboard and settings
 ├── infra/
 │   └── main.bicep               # [EN] Azure storage template for the layers (not deployed)
 ├── tests/                       # [EN] Automated test suites (Bronze, Silver, Reconciliation, Gold)
 ├── run_e2e_factory.py           # [EN] Single-command end-to-end orchestrator
-├── requirements.txt             # [EN] Pinned global dependency manifest
+├── requirements.txt             # [EN] Dependency list
 └── README.md                    # [EN] Official submission documentation
 ```
 
@@ -120,9 +117,9 @@ The figures in this table (99.82%, 1,224 rows) were measured by the lakehouse ow
 
 ---
 
-## 5. Mandatory Hackathon Disclosures / 官方参赛强制披露声明
+## 5. Data and Tools / 数据与工具
 
-### Datasets Used / 数据集使用声明
+### Datasets / 数据集
 - **French Motor Third-Party Liability Dataset (`freMTPL2freq`, `freMTPL2sev`)**:
   - Source: public actuarial dataset from the R package `CASdatasets`, also published on OpenML.
   - Licence: as stated by the dataset's publisher; check it before any reuse. This repository holds only a small sample (`datasets/base/`).
@@ -130,12 +127,11 @@ The figures in this table (99.82%, 1,224 rows) were measured by the lakehouse ow
 - **Adversarial test rows**: made up by `engine/recon/advdata.py` (NULLs, repeated keys, mixed case, boundary values).
 - **Zero Real Client / Personal Data**: All demonstrations and benchmarking use public or synthetic data only.
 
-### AI & Open-Source Tools Declared / 声明采用的 AI 与开源工具
+### Tools / 工具
 - **`sqlglot` (MIT)**: Deterministic T-SQL dialect parsing, semantic AST tree extraction, and column-level lineage graph generation.
 - **`PySpark` & `Delta Lake` (Apache-2.0)**: Distributed compute engine and ACID transaction lakehouse table format.
 - **`Streamlit` (Apache-2.0)**: Interactive web control plane for lineage exploration, reconciliation proof inspection, and human sign-off.
 - **Local LLM (`qwen2.5-coder:3b` via Ollama)**: Used strictly as a fallback code proposal agent on code syntax, schema structures, and synthetic counterexample diffs. It runs on the developer's machine; **no prompt is sent to an external API, and no customer or PII data is involved.**
-- **AI coding assistants used during development**: see [`docs/ai_tools_declaration.md`](docs/ai_tools_declaration.md).
 
 ---
 
@@ -161,7 +157,3 @@ Full documentation: [`docs/engine.md`](docs/engine.md). 完整文档见 [`docs/e
 
 Latest results on the team's machine, with the local model on / 团队机器上的最新结果（启用本地模型）:
 **13 jobs: 7 Verified, 1 Tested, 5 Needs review.** With `--llm off` the Tested job (J10) becomes Needs review.
-
-## 7. AI Tools & Existing Code Declaration / AI 工具与既有代码声明
-
-See [`docs/ai_tools_declaration.md`](docs/ai_tools_declaration.md).

@@ -212,8 +212,8 @@ out/<job>/ai_log.jsonl       every prompt, answer, model name and timing (LLM pa
 - No SAS runtime is available, so SAS jobs have no legacy answers and stay *Needs review*.
 - Generated code that divides decimals sets `spark.sql.decimalOperations.allowPrecisionLoss=false`.
 
-## Data and tools declaration
+## Data and tools
 
 - Data: freMTPL2 (public French motor insurance data, no personal identifiers); adversarial data is generated.
 - Libraries: sqlglot (MIT), PySpark (Apache-2.0), pyodbc (MIT), PyYAML (MIT), pytest (MIT).
-- AI tools: see [`ai_tools_declaration.md`](ai_tools_declaration.md).
+- Translation model: `qwen2.5-coder:3b`, run locally through Ollama.
