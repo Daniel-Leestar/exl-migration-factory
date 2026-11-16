@@ -3,7 +3,7 @@ flowchart LR
     subgraph Z1["Zone 1: Legacy Estate (源端资产)"]
         SQLDocker["SQL Server 2022 Docker\nBaseline Execution"]
         Jobs["12 Migration Jobs\n9 T-SQL + 3 SAS"]
-        DataRaw["freMTPL2 + Faker\nSCD2 Benchmark Data"]
+        DataRaw["freMTPL2 sample +\nadversarial test rows"]
         OracleOut[("jobs/<JOB>/oracle_output.parquet\nAuthoritative Ground Truth")]
         SQLDocker --> OracleOut
         Jobs --> SQLDocker
@@ -13,7 +13,7 @@ flowchart LR
     %% Zone 2: Dual-Path Migration Engine
     subgraph Z2["Zone 2: Dual-Path Agentic Migration Engine (迁移编译内核)"]
         Parser["sqlglot AST & Lineage Parser\nDeterministic T-SQL AST"]
-        IR["IR Schema v0 (Pydantic)\nStrict JSON Specification"]
+        IR["Typed IR v1\nimmutable nodes, JSON"]
         Gate{"Within IR Scope?\n确定性语法范围判断"}
         PathA["[Path A] Deterministic Codegen\nDirect AST -> PySpark"]
         PathB["[Path B] LLM Fallback Agent\nZero-PII Syntactic Translation"]

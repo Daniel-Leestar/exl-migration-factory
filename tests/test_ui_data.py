@@ -29,6 +29,21 @@ Test list / 測試清單
 - test_job_id_cannot_leave_the_jobs_folder
     Purpose: a crafted job id must not read files outside the project.
     Method: job id "../x"; expect UiDataError from every loader.
+- test_ai_log_is_read_in_order_and_empty_when_absent
+    Purpose: the AI audit tab shows every model call, and says so plainly when there was none.
+    Method: no file -> []; two JSON lines -> two calls in order; a broken line -> UiDataError with the line number.
+- test_funnel_counts_each_stage
+    Purpose: the progress funnel must agree with the Gold rule.
+    Method: 4 jobs (verified+signed, verified, tested, needs review); expect 4 / 3 / 1.
+- test_next_step_follows_status_and_sign_off
+    Purpose: each job page tells the reviewer what to do next.
+    Method: signed-off, Verified, Tested and blocked jobs; expect a different instruction for each.
+- test_blocker_types_group_the_engine_reasons
+    Purpose: analytics groups real engine reasons instead of listing free text.
+    Method: one sample of each reason the engine writes; expect its group, and "Other" for unknown text.
+- test_report_summary_states_the_verdict
+    Purpose: the reconciliation tab opens with a plain verdict.
+    Method: passing report, failing report, report with nothing compared, no report; expect the matching sentence.
 """
 from __future__ import annotations
 
@@ -37,8 +52,8 @@ from pathlib import Path
 
 import pytest
 
-from ui.data import (UiDataError, breakdown, gold_ready, job_rows, lineage_dot, load_job_files, load_lineage,
-                     load_report, load_store)
+from ui.data import (UiDataError, blocker_type, breakdown, funnel, gold_ready, job_rows, lineage_dot, load_ai_log,
+                     load_job_files, load_lineage, load_report, load_store, next_step, report_summary)
 
 
 def job(job_id, status, approved=False, dialect="T-SQL"):
@@ -141,3 +156,65 @@ def test_job_id_cannot_leave_the_jobs_folder(tmp_path):
                    lambda: load_lineage(tmp_path, "../x", {})):
         with pytest.raises(UiDataError, match="invalid job id"):
             loader()
+
+
+# Purpose: the AI audit tab shows every model call, and is empty when there was none.
+# 目的:AI 稽核分頁顯示每一次模型呼叫;沒有呼叫時為空。
+def test_ai_log_is_read_in_order_and_empty_when_absent(tmp_path):
+    assert load_ai_log(tmp_path, "J1") == []
+    log = tmp_path / "ai_log" / "J1.jsonl"
+    log.parent.mkdir()
+    log.write_text('{"purpose": "translate"}\n\n{"purpose": "repair 1"}\n', encoding="utf-8")
+    assert [call["purpose"] for call in load_ai_log(tmp_path, "J1")] == ["translate", "repair 1"]
+    log.write_text('{"purpose": "translate"}\nnot json\n', encoding="utf-8")
+    with pytest.raises(UiDataError, match="line 2"):
+        load_ai_log(tmp_path, "J1")
+
+
+# Purpose: the progress funnel must agree with the Gold rule.
+# 目的:進度漏斗必須與 Gold 規則一致。
+def test_funnel_counts_each_stage():
+    store = {"jobs": [job("A", "Verified", True), job("B", "Verified"), job("C", "Tested"), job("D", "Needs review", True)]}
+    assert funnel(store) == {"jobs": 4, "reconciled": 3, "signed_off": 1}
+
+
+# Purpose: each job page tells the reviewer what to do next.
+# 目的:每個 job 頁面都告訴審閱者下一步。
+def test_next_step_follows_status_and_sign_off():
+    assert "promote" in next_step(job("A", "Verified", True))
+    assert "fixed rules" in next_step(job("B", "Verified"))
+    assert "AI audit" in next_step(job("C", "Tested"))
+    blocked = job("D", "Needs review")
+    blocked["reason"] = "no legacy output to compare against (unavailable)"
+    assert next_step(blocked).startswith("Not ready: No legacy answer")
+
+
+# Purpose: analytics groups real engine reasons instead of listing free text.
+# 目的:分析頁把引擎真正寫出的原因分組,而不是列出自由文字。
+@pytest.mark.parametrize("reason, group", [
+    ("no legacy output to compare against (unavailable: no answer file)", "No legacy answer to compare against"),
+    ("outside IR scope (MERGE statement) and the LLM path is switched off", "Needs the AI model, which was switched off"),
+    ("still differs from legacy after 3 repair(s): 2 different rows", "AI translation did not match legacy"),
+    ("the LLM could not produce a translation: no run()", "AI translation did not match legacy"),
+    ("rule-generated code differs from legacy on 'base' data: totals differ", "Rule translation did not match legacy"),
+    ("job could not be loaded: no legacy.sql", "Job could not be processed"),
+    ("something new", "Other"),
+    ("", "Other"),
+])
+def test_blocker_types_group_the_engine_reasons(reason, group):
+    assert blocker_type(reason) == group
+
+
+# Purpose: the reconciliation tab opens with a plain verdict.
+# 目的:對帳分頁以白話結論開頭。
+def test_report_summary_states_the_verdict():
+    datasets = [{"name": "base", "passed": True}, {"name": "adversarial", "passed": True}, {"name": "empty", "passed": None}]
+    passing = {"overall_passed": True, "datasets": datasets, "summary": {"legacy_rows": 21, "spark_rows": 21, "mismatched_rows": 0}}
+    assert report_summary(passing) == "All 21 legacy rows match on the sample data, and 2 of 2 test datasets pass."
+
+    failing = {"overall_passed": False, "datasets": [{"name": "base", "passed": False}],
+               "summary": {"legacy_rows": 5, "spark_rows": 4, "mismatched_rows": 2}}
+    assert "2 mismatched rows" in report_summary(failing) and "5 (legacy) vs 4 (Spark)" in report_summary(failing)
+
+    assert "Nothing was compared" in report_summary({"datasets": [], "summary": {"legacy_rows": None}})
+    assert "No reconciliation report" in report_summary(None)

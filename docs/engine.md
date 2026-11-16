@@ -113,7 +113,8 @@ columns: [...]                   # output columns; written by `export` for Verif
 
 ## Publishing results in the team formats (`python -m engine export`)
 
-`export` reads `out/` (it never re-runs a job) and writes:
+`export` reads `out/` (it never re-runs a job) and writes the files below. All of them are run results and are
+ignored by Git; CI regenerates them before it runs the tests.
 
 ```
 ui/mock_data/status_store.json           status table for the UI and the Gold deployment gate
@@ -122,11 +123,13 @@ jobs/<job>/oracle_output.parquet         legacy answer on the real-data sample  
 jobs/<job>/solution.py                   generated code + run_job(spark)         (Verified / Tested only)
 ui/mock_data/code/<job>.py               last PySpark attempt, whatever its level (for the dashboard)
 ui/mock_data/lineage/<job>.json          lineage (for the dashboard)
+ui/mock_data/ai_log/<job>.jsonl          every AI model call for the job (for the dashboard)
 ```
 
 - `human_approval` is `approved: false` unless a valid sign-off is recorded (next section): approval is a
   human action, never a machine result.
 - `category` in the status table comes from `category` in the job's `meta.yaml`.
+- `rules_applied`, `out_of_scope_reason`, `model` and `seconds` are added for the dashboard; they are outside the team contract.
 - A job that drops to *Needs review* has its exported `solution.py` / `oracle_output.parquet` removed,
   so the CI gate never checks stale code. Hand-written solutions are left alone.
 - `solution.py` loads its inputs from `datasets/base/*.csv`, the same sample the answer file was made from.
@@ -144,7 +147,7 @@ approved by a person. A reviewer reads the code and the reconciliation report in
 ```
 
 - Refused for *Needs review* jobs, for a blank reviewer name, and for jobs with no published `solution.py`.
-- Sign-offs are stored in `jobs/approvals.json` together with the SHA-256 of the reviewed `solution.py`.
+- Sign-offs are stored in `jobs/approvals.json` (not committed) together with the SHA-256 of the reviewed `solution.py`.
 - A sign-off stops counting as soon as the published code changes or the job stops passing;
   the next `export` then writes `approved: false` with the reason in `notes`.
 
@@ -154,19 +157,32 @@ approved by a person. A reviewer reads the code and the reconciliation report in
 .venv\Scripts\python -m streamlit run ui\app.py
 ```
 
-Three pages: **Overview** (headline numbers and a short status table; the other columns sit behind a toggle),
-**Job detail** (legacy code next to PySpark, lineage graph, reconciliation report, and a **Review & actions** tab)
-and **Analytics** (by dialect and by path, plus why jobs still need review). Viewing needs only the committed files
-under `ui/mock_data/` and `jobs/`, so it works on a fresh clone.
+It shows what `export` published, so run `run-all` and `export` first. Navigation is a bar at the top.
 
-The **Review & actions** tab (`ui/actions.py`) lets a person:
+- **Overview**: headline numbers, progress to the Gold layer, the job table (six columns by default; hover over a
+  column name for an explanation), the Gold deployment gate, and a guide to levels and columns at the bottom.
+- **Job detail**: legacy code next to PySpark with the legacy behaviours the rules reproduced; lineage; the
+  reconciliation report opening with a plain verdict; the **AI audit** tab (every prompt and answer); and
+  **Review & actions** (sign off, withdraw, re-run).
+- **Analytics**: how many jobs were migrated by rules and by the AI model, measured machine time, an effort estimate
+  based on an assumption the viewer sets, and blockers grouped by kind.
+- **Try your own code**: paste or upload T-SQL / SAS to see whether the fixed rules can translate it, with the
+  generated PySpark. Nothing is saved or run, and the AI model is not called.
 
-- **Sign off** a Verified / Tested job (name, optional notes, and a tick confirming they read the code and the
-  report) or withdraw a sign-off. It writes the same record as `python -m engine approve`.
-- **Re-run** the job: the engine runs in a separate process (`engine run <job>` then `engine export`). The tab shows
-  whether the local model server is reachable; without it the job can still be re-run with the model off.
+Actions live in `ui/actions.py`; each long one (re-run, Gold deployment) starts a separate process.
+There is no login: the reviewer name is recorded as typed. That suits a demo or a trusted team only.
 
-There is no login: the reviewer name is recorded as typed. That is acceptable for a demo or a trusted team only.
+## Settings (`.env`)
+
+| Variable | Default | Used by |
+|---|---|---|
+| `MF_OLLAMA_HOST` | `http://localhost:11434` | engine, dashboard |
+| `MF_OLLAMA_MODEL` | `qwen2.5-coder:3b` | engine, dashboard |
+| `MF_SQLSERVER_CONN` | unset (answer files are used) | engine |
+| `MF_LAKEHOUSE_ROOT` | `data` | `run_e2e_factory.py`, dashboard Gold deployment |
+
+`MF_LAKEHOUSE_ROOT` is a folder path. For Azure storage, the `cloud/` scripts take `--cloud --cloud-prefix abfss://...`;
+`infra/main.bicep` describes that storage. Neither has been run against Azure by us.
 
 ## Engine outputs (`out/`, not committed)
 
@@ -200,4 +216,4 @@ out/<job>/ai_log.jsonl       every prompt, answer, model name and timing (LLM pa
 
 - Data: freMTPL2 (public French motor insurance data, no personal identifiers); adversarial data is generated.
 - Libraries: sqlglot (MIT), PySpark (Apache-2.0), pyodbc (MIT), PyYAML (MIT), pytest (MIT).
-- AI tools: Claude Code was used to help write this codebase; `qwen2.5-coder:3b` via Ollama is the translation model.
+- AI tools: see [`ai_tools_declaration.md`](ai_tools_declaration.md).

@@ -115,6 +115,12 @@ def status_record(entry: dict, report: dict, approval: dict | None = None, categ
         "discrepancies": _discrepancies(report),
         "reason": entry.get("reason") or "",
         "human_approval": approval or {"approved": False, "reviewer": None, "timestamp": None, "notes": ""},
+        # Extra to the team contract, for the dashboard: why the code looks the way it does and what it cost.
+        # 團隊契約以外、給儀表板用的欄位:程式為何長這樣,以及花了多少時間。
+        "rules_applied": list(entry.get("rules_applied") or []),
+        "out_of_scope_reason": entry.get("out_of_scope_reason"),
+        "model": entry.get("model"),
+        "seconds": entry.get("seconds"),
     }
     if path == "llm":
         record["llm_iterations"] = len(report.get("attempts", []))
@@ -272,11 +278,15 @@ def _publish_gate_package(job: Job, job_out: Path, base_dir: Path, schemas: dict
 
 
 def _publish_for_dashboard(job_out: Path, ui_dir: Path, job_id: str) -> None:
-    """Copy the last PySpark attempt and the lineage next to the status table, or remove stale copies.
-    把最後一次的 PySpark 與 lineage 複製到狀態表旁;來源不存在時移除過期的副本。
+    """Copy the last PySpark attempt, the lineage and the AI call log next to the status table, or remove stale copies.
+    把最後一次的 PySpark、lineage 與 AI 呼叫紀錄複製到狀態表旁;來源不存在時移除過期的副本。
+
+    The AI log holds prompts and answers; prompts only ever contain code, table structures and made-up rows.
+    AI 紀錄含 prompt 與回答;prompt 只會包含程式碼、表結構與虛構資料列。
     """
     for source, target in ((job_out / "generated.py", ui_dir / "code" / f"{job_id}.py"),
-                           (job_out / "lineage.json", ui_dir / "lineage" / f"{job_id}.json")):
+                           (job_out / "lineage.json", ui_dir / "lineage" / f"{job_id}.json"),
+                           (job_out / "ai_log.jsonl", ui_dir / "ai_log" / f"{job_id}.jsonl")):
         if source.exists():
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(source.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")

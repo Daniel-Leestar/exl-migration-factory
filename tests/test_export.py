@@ -250,3 +250,25 @@ def test_dashboard_gets_code_and_lineage_for_every_level(tmp_path):
     (paths["out"] / "J1" / "generated.py").unlink()
     run_export(paths)
     assert not (paths["ui"] / "code" / "J1.py").exists() and not (paths["ui"] / "lineage" / "J1.json").exists()
+
+
+# Purpose: a reviewer must be able to see what the model was asked and which legacy rules were applied.
+# 目的:審閱者要能看到模型被問了什麼,以及套用了哪些舊系統規則。
+def test_dashboard_gets_ai_log_and_rules(tmp_path):
+    paths = make_project(tmp_path, {"J1": {"level": "Verified"}})
+    status = json.loads((paths["out"] / "status.json").read_text(encoding="utf-8"))
+    status["jobs"][0].update(rules_applied=["integer / integer drops the fraction"], seconds=4.2, model="m1",
+                             out_of_scope_reason=None)
+    (paths["out"] / "status.json").write_text(json.dumps(status), encoding="utf-8")
+    log = paths["out"] / "J1" / "ai_log.jsonl"
+    log.write_text(json.dumps({"purpose": "translate", "prompt": "p", "response": "r"}) + "\n", encoding="utf-8")
+
+    record = run_export(paths)["store"]["jobs"][0]
+    assert record["rules_applied"] == ["integer / integer drops the fraction"]
+    assert (record["seconds"], record["model"]) == (4.2, "m1")
+    published = paths["ui"] / "ai_log" / "J1.jsonl"
+    assert json.loads(published.read_text(encoding="utf-8"))["purpose"] == "translate"
+
+    log.unlink()
+    run_export(paths)
+    assert not published.exists()

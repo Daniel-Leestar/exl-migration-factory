@@ -26,7 +26,7 @@ def generate_mermaid_code() -> str:
     subgraph Z1["Zone 1: Legacy Estate (源端资产)"]
         SQLDocker["SQL Server 2022 Docker\\nBaseline Execution"]
         Jobs["12 Migration Jobs\\n9 T-SQL + 3 SAS"]
-        DataRaw["freMTPL2 + Faker\\nSCD2 Benchmark Data"]
+        DataRaw["freMTPL2 sample +\\nadversarial test rows"]
         OracleOut[("jobs/<JOB>/oracle_output.parquet\\nAuthoritative Ground Truth")]
         SQLDocker --> OracleOut
         Jobs --> SQLDocker
@@ -36,7 +36,7 @@ def generate_mermaid_code() -> str:
     %% Zone 2: Dual-Path Migration Engine
     subgraph Z2["Zone 2: Dual-Path Agentic Migration Engine (迁移编译内核)"]
         Parser["sqlglot AST & Lineage Parser\\nDeterministic T-SQL AST"]
-        IR["IR Schema v0 (Pydantic)\\nStrict JSON Specification"]
+        IR["Typed IR v1\\nimmutable nodes, JSON"]
         Gate{"Within IR Scope?\\n确定性语法范围判断"}
         PathA["[Path A] Deterministic Codegen\\nDirect AST -> PySpark"]
         PathB["[Path B] LLM Fallback Agent\\nZero-PII Syntactic Translation"]
@@ -165,7 +165,7 @@ def generate_svg_markup() -> str:
       <text x="20" y="34" fill="#38bdf8" font-size="16" font-weight="700">Public Benchmark Data (Zero-PII)</text>
       <text x="20" y="60" fill="#e2e8f0" font-size="13">• freMTPL2freq.csv (678k risk policies)</text>
       <text x="20" y="84" fill="#e2e8f0" font-size="13">• freMTPL2sev.csv (26k claim records)</text>
-      <text x="20" y="108" fill="#e2e8f0" font-size="13">• Faker Synthetic SCD2 policy stream</text>
+      <text x="20" y="108" fill="#e2e8f0" font-size="13">• Generated adversarial test rows</text>
     </g>
 
     <!-- Card 1.3: SQL Server 2022 Docker Baseline -->
@@ -203,7 +203,7 @@ def generate_svg_markup() -> str:
       <text x="20" y="32" fill="#38bdf8" font-size="15" font-weight="700">sqlglot AST &amp; Lineage Parser</text>
       <text x="20" y="56" fill="#94a3b8" font-size="12">Transforms legacy SQL into standardized Semantic AST</text>
       <rect x="20" y="70" width="360" height="26" rx="6" fill="#0c182b"/>
-      <text x="30" y="87" fill="#67e8f9" font-size="11" font-family="monospace">IR Schema v0: Pydantic strict AST JSON contracts</text>
+      <text x="30" y="87" fill="#67e8f9" font-size="11" font-family="monospace">IR v1: typed immutable nodes, SQL Server type rules</text>
     </g>
 
     <!-- Diamond Decision Gate -->
@@ -358,7 +358,7 @@ def generate_svg_markup() -> str:
       <text x="20" y="54" fill="#cbd5e1" font-size="12">• Executive Cockpit: 83.3% automated pass rate</text>
       <text x="20" y="78" fill="#cbd5e1" font-size="12">• End-to-End Interactive Column Lineage</text>
       <text x="20" y="102" fill="#cbd5e1" font-size="12">• Record-for-Record Diff &amp; Counterexample viewer</text>
-      <text x="20" y="126" fill="#cbd5e1" font-size="12">• 1,200-Job Enterprise ROI &amp; Modernisation Model</text>
+      <text x="20" y="126" fill="#cbd5e1" font-size="12">• AI audit trail, sign-off and effort estimate</text>
       <rect x="20" y="144" width="350" height="30" rx="6" fill="#0369a1" opacity="0.4"/>
       <text x="195" y="164" fill="#7dd3fc" font-size="12" font-weight="600" text-anchor="middle">Command: streamlit run ui/app.py</text>
     </g>

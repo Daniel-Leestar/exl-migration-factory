@@ -43,6 +43,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      # Run results are not committed: rebuild them from the committed legacy answers (no SQL Server, no LLM),
+      # so the reconciliation gate below checks freshly generated code.
+      # 执行结果不提交:用已提交的旧系统答案重新生成(无需 SQL Server 与 LLM),让下面的对账门禁验证刚生成的代码。
+      - name: Run Migration Engine / 运行迁移引擎并发布结果
+        run: |
+          python -m engine run-all --legacy golden --llm off
+          python -m engine export
+
       # Step 4: Run full automated pytest test suite / 运行全量自动化测试套件
       - name: Run All Automated Pytest Suites / 运行全量 Pytest 自动化测试
         run: |

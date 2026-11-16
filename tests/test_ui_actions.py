@@ -27,6 +27,14 @@ Test list / 測試清單
 - test_model_status_messages
     Purpose: the page must say why a re-run with the model cannot start.
     Method: fake opener that is unreachable / lacks the model / has it; expect (False, reason) twice, then (True, ...).
+- test_deploy_runs_the_gold_gate_on_the_configured_folder
+    Purpose: the deploy button must use the published status table and the configured lakehouse folder.
+    Method: MF_LAKEHOUSE_ROOT set; fake runner; expect gold_deploy.py with that folder's gold / silver paths;
+            exit code 1 becomes ActionError carrying the output.
+- test_triage_tells_rule_path_from_ai_path
+    Purpose: a person dropping in unknown legacy code learns at once whether fixed rules can translate it, and why not.
+    Method: integer-division SELECT -> IR with generated code and the truncation rule listed;
+            UNION ALL -> LLM with a reason; a .sas file -> LLM; empty text -> ActionError.
 - test_settings_prefer_environment_over_env_file
     Purpose: the model address is configurable without editing code.
     Method: `.env` sets host and model, environment overrides the host; expect environment host, file model.
@@ -34,6 +42,7 @@ Test list / 測試清單
 from __future__ import annotations
 
 import io
+import os
 import json
 import subprocess
 import urllib.error
@@ -42,7 +51,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ui.actions import ActionError, model_status, rerun, settings, sign_off, withdraw
+from ui.actions import ActionError, deploy_gold, model_status, rerun, settings, sign_off, triage, withdraw
 
 
 def make_root(tmp_path: Path, status: str = "Verified") -> Path:
@@ -168,10 +177,45 @@ def test_model_status_messages():
 # Purpose: the model address is configurable without editing code.
 # 目的:不改程式就能設定模型位址。
 def test_settings_prefer_environment_over_env_file(tmp_path, monkeypatch):
-    monkeypatch.delenv("MF_OLLAMA_HOST", raising=False)
-    monkeypatch.delenv("MF_OLLAMA_MODEL", raising=False)
-    assert settings(tmp_path) == {"ollama_host": "http://localhost:11434", "ollama_model": "qwen2.5-coder:3b"}
+    # A private copy of the environment: reading `.env` sets variables, which must not leak into other tests.
+    # 使用環境變數的私有副本:讀取 `.env` 會設定變數,不可外洩到其他測試。
+    monkeypatch.setattr(os, "environ", {k: v for k, v in os.environ.items() if not k.startswith("MF_")})
+    assert settings(tmp_path) == {"ollama_host": "http://localhost:11434", "ollama_model": "qwen2.5-coder:3b",
+                                  "lakehouse_root": "data"}
 
     (tmp_path / ".env").write_text("# comment\nMF_OLLAMA_HOST=http://file:1\nMF_OLLAMA_MODEL=file-model\n", encoding="utf-8")
-    monkeypatch.setenv("MF_OLLAMA_HOST", "http://env:2")
-    assert settings(tmp_path) == {"ollama_host": "http://env:2", "ollama_model": "file-model"}
+    os.environ["MF_OLLAMA_HOST"] = "http://env:2"
+    assert settings(tmp_path) == {"ollama_host": "http://env:2", "ollama_model": "file-model", "lakehouse_root": "data"}
+
+
+# Purpose: the deploy button uses the published status table and the configured lakehouse folder.
+# 目的:部署按鈕使用已發布的狀態表與設定的 lakehouse 資料夾。
+def test_deploy_runs_the_gold_gate_on_the_configured_folder(tmp_path, monkeypatch):
+    monkeypatch.setenv("MF_LAKEHOUSE_ROOT", "lake")
+    root, runner = make_root(tmp_path), Runner(codes=(0,))
+    assert "out text" in deploy_gold(root, runner=runner)
+    command = runner.commands[0]
+    assert command[1].endswith("gold_deploy.py") and command[command.index("--status-path") + 1].endswith("status_store.json")
+    assert Path(command[command.index("--gold-root") + 1]) == Path("lake") / "gold"
+    assert Path(command[command.index("--silver-root") + 1]) == Path("lake") / "silver"
+
+    with pytest.raises(ActionError, match="exit code 1"):
+        deploy_gold(root, runner=Runner(codes=(1,)))
+
+
+# Purpose: unknown legacy code is sorted into "rules can do it" or "needs the AI model", with the reason.
+# 目的:未知的舊程式會被分成「規則可處理」或「需要 AI 模型」,並說明原因。
+def test_triage_tells_rule_path_from_ai_path(tmp_path):
+    (tmp_path / "jobs").mkdir()
+    (tmp_path / "jobs" / "_schemas.yaml").write_text("t:\n  id: int\n  n: int\n", encoding="utf-8")
+
+    by_rules = triage(tmp_path, "SELECT id, n / 2 AS half FROM dbo.t", "x.sql")
+    assert by_rules["path"] == "IR" and "def run" in by_rules["code"]
+    assert any("integer" in rule for rule in by_rules["rules"])
+
+    by_model = triage(tmp_path, "SELECT id FROM dbo.t UNION ALL SELECT id FROM dbo.t", "x.sql")
+    assert by_model["path"] == "LLM" and by_model["code"] is None and by_model["reason"]
+
+    assert triage(tmp_path, "data a; set b; run;", "x.SAS")["language"] == "SAS"
+    with pytest.raises(ActionError, match="empty"):
+        triage(tmp_path, "   ", "x.sql")

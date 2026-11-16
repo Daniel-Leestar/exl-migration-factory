@@ -7,7 +7,7 @@
 > **Team Members & Ownership / 团队成员与分工:**
 > - **Tianyue Li / 李天悦 (DevOps & Lakehouse Lead)**: Cloud lakehouse architecture, Bronze ingestion, Silver data contracts & quarantine routing, Gold governance admission gates, CI/CD automated reconciliation pipeline, and FinOps/SLA alerts.
 > - **Pin-Yun Kuo / 郭小妘 (Compiler Lead)**: Deterministic migration engine, `sqlglot` AST parsing, IR Schema v0, deterministic PySpark codegen, row-by-row reconciliation engine, and minimal failure shrinker.
-> - **Neeraj (Benchmarking & UI Lead)**: SQL Server 2022 Docker baseline execution, ground-truth `.parquet` export, and Streamlit interactive control plane (lineage graph, diff reports, and 1,200-job extrapolation).
+> - **Neeraj (Benchmarking & UI Lead)**: SQL Server 2022 Docker baseline execution, ground-truth `.parquet` export, and Streamlit interactive control plane (lineage graph, reconciliation reports and analytics).
 
 ---
 
@@ -15,37 +15,47 @@
 
 Enterprises face massive hurdles modernizing legacy data estates: tens of thousands of brittle T-SQL stored procedures and SAS actuarial scripts locked in on-premise silos. Unchecked LLM code generation introduces hallucination risks, numerical drift, and compliance violations.
 
-**EXL Migration Factory** tackles this challenge across **1,200 ETL jobs and 400 SAS actuarial procedures** targeting a modern Azure Lakehouse (PySpark + Delta Lake) under a non-negotiable architectural doctrine:
+**EXL Migration Factory** is a working prototype for that kind of estate (the challenge brief describes about 1,200 ETL jobs and 400 SAS procedures), demonstrated on **13 representative jobs** and targeting a modern Azure Lakehouse (PySpark + Delta Lake) under a non-negotiable architectural doctrine:
 
 > ### **[Team First Principle: AI Proposes, the Compiler Disposes]**
-> Large Language Models (LLMs) never hold autonomous write access or production authority. LLMs propose candidate transformations within strictly bounded, Pydantic-validated Intermediate Representations (IR). Every candidate PySpark script must pass automated, mathematical, record-for-record reconciliation against authoritative SQL Server ground truth (`oracle_output.parquet`). Jobs failing reconciliation are capped at 3 self-healing iterations before being safely degraded to `Needs review`. Zero defective code enters the Gold production layer.
+> Large Language Models (LLMs) never hold autonomous write access or production authority. Fixed rules translate what they can through a typed Intermediate Representation (IR); an LLM proposes PySpark only for what the rules cannot handle, and its code is statically checked before it runs. Every candidate PySpark script must pass automated, mathematical, record-for-record reconciliation against the legacy system's own output recorded from SQL Server. Jobs failing reconciliation are capped at 3 self-healing iterations before being safely degraded to `Needs review`. Zero defective code enters the Gold production layer.
 >
 > ### **【团队研发第一铁律：AI Proposes, the Compiler Disposes】**
-> 大语言模型（LLM）绝不拥有自主写库权或生产发布权。LLM 仅在严格受限且经过 Pydantic 校验的中间表示（IR）范围内提出代码建议。所有候选 PySpark 脚本必须通过与权威旧系统标准答案（`oracle_output.parquet`）的全量逐行数学对账。未通过对账的作业最多允许 3 次自愈重试，逾期安全降级为 `Needs review`，绝不允许任何带病代码注入 Gold 生产层。
+> 大语言模型（LLM）绝不拥有自主写库权或生产发布权。固定规则通过带类型的中间表示（IR）翻译其能处理的部分；规则无法处理的部分才由 LLM 提出 PySpark 代码，且代码在执行前先经过静态检查。所有候选 PySpark 脚本必须通过与从 SQL Server 录制的旧系统输出的逐行对账。未通过对账的作业最多允许 3 次自愈重试，逾期安全降级为 `Needs review`，绝不允许任何带病代码注入 Gold 生产层。
 
 ---
 
-## 2. 3-Step Quickstart Guide / 3 步快速开始与评委复现指南
+## 2. Quickstart / 快速开始
 
-Run these 3 commands in a clean environment (Python 3.10+):
+Needs Python 3.10+ and a Java runtime (8, 11 or 17) for PySpark. Run from the project root.
+需要 Python 3.10+ 与 Java 运行环境（8、11 或 17）。在项目根目录执行。
 
 ```bash
-# Step 1: Install pinned dependencies / 安装全局锁定依赖
+# 1. Install dependencies / 安装依赖
 pip install -r requirements.txt
 
-# Step 2: Run complete automated test suite (Contracts + Reconciliation Gates)
-# 执行全量自动化测试套件 (包含数据契约校验与双轨对账门禁)
+# 2. Migrate every job and publish the results. Results are not stored in the repository.
+#    This mode needs no SQL Server and no AI model: it replays the committed legacy answers.
+#    迁移全部作业并发布结果。结果不存入仓库；此模式无需 SQL Server 与 AI 模型，使用已提交的旧系统答案。
+python -m engine run-all --legacy golden --llm off
+python -m engine export
+
+# 3. Run the automated tests (data contracts + reconciliation gate)
+#    运行自动化测试（数据契约与对账门禁）
 pytest tests/ -v
 
-# Step 3: Run end-to-end Medallion & Governance Pipeline
-# 一键运行端到端 Medallion 湖仓摄取、契约清洗、对账门禁与 Gold 发布流水线
+# 4. Open the dashboard / 打开仪表板
+streamlit run ui/app.py
+
+# Optional: Bronze -> Silver -> reconciliation gate -> Gold in one command
+# 可选：一键执行 Bronze -> Silver -> 对账门禁 -> Gold
 python run_e2e_factory.py
 ```
 
-### Launch Interactive Governance Workbench / 启动 Streamlit 交互治理大屏
-```bash
-streamlit run ui/app.py
-```
+With a local model (`ollama pull qwen2.5-coder:3b`) and SQL Server LocalDB, drop `--legacy golden --llm off`
+to let the AI path run as well. Settings live in `.env` (copy `.env.example`).
+若本机有模型（`ollama pull qwen2.5-coder:3b`）与 SQL Server LocalDB，去掉 `--legacy golden --llm off` 即可同时运行 AI 路径。
+设置放在 `.env`（由 `.env.example` 复制）。
 
 ---
 
@@ -65,14 +75,14 @@ exl-migration-factory/
 │   │                            # [CN] Silver 层数据契约校验与 Quarantine 隔离分流引擎 (拦截 1,224 异常)
 │   └── gold_deploy.py           # [EN] Production admission gate, automated deployment & SLA alert engine
 │                                # [CN] Gold 生产层严格准入门禁、自动发布与 SLA 告警引擎
-├── jobs/                        # [EN] 12 migration job packages (J00_mock, J01-J09, S01-S03)
-│                                # [CN] 12 个迁移作业自包含包 (包含 legacy.sql, meta.yaml, oracle_output.parquet)
+├── jobs/                        # [EN] 13 migration jobs (J01-J10, S01-S03) plus the CI fixture J00_mock
+│                                # [CN] 13 个迁移作业 (legacy 代码、meta.yaml、录制的旧系统答案) 与 CI 样板 J00_mock
 │   ├── J00_mock/                # [EN] Decoupled baseline verification mock job package
 │   └── ...                      # [EN] J01-J09 (T-SQL), S01-S03 (SAS Actuarial)
 ├── engine/                      # [EN] Migration compiler kernel (AST, IR v0, Codegen, Reconciler, Shrinker)
 │                                # [CN] 迁移工厂核心编译器 (AST 语法树解析、确定性生成、对账比对、反例缩减)
-├── ui/                          # [EN] Streamlit executive workbench (lineage graphs, diff inspector, ROI)
-│                                # [CN] Streamlit 交互治理工作台 (字段级血缘、对账报告、1,200 作业商业推估)
+├── ui/                          # [EN] Streamlit dashboard (status, code, lineage, reconciliation, AI audit, sign-off)
+│                                # [CN] Streamlit 仪表板 (状态、代码对照、血缘、对账报告、AI 审计、人工签核)
 ├── data/                        # [EN] Physical Lakehouse tiers (.gitignore protected, clean fallbacks)
 │   ├── raw/                     # [EN] Raw benchmark files (freMTPL2freq.csv, freMTPL2sev.csv)
 │   ├── bronze/                  # [EN] Bronze Delta Lake tables
@@ -82,9 +92,12 @@ exl-migration-factory/
 ├── docs/                        # [EN] Hackathon submission deliverables (Diagrams, Demo script, Deck)
 │   ├── architecture_diagram.svg # [EN] 1920x1080 High-resolution vector architecture diagram
 │   ├── architecture_diagram.mmd # [EN] Mermaid source code for architecture topology
-│   ├── responsible_ai_note.md   # [EN] Single-page Responsible AI declaration
-│   ├── demo_script_3min.md      # [EN] Timestamped 3-minute video recording storyboard
-│   └── deck_architecture_ops.md # [EN] Slide-by-slide copy for solution deck
+│   ├── responsible_ai_note.md   # [EN] Single-page Responsible AI note
+│   ├── engine.md                # [EN] Migration engine, dashboard and settings
+│   ├── ai_tools_declaration.md  # [EN] AI tools and existing code used (required by the organisers)
+│   └── deck_outline.md          # [EN] Slide copy and demo sequence
+├── infra/
+│   └── main.bicep               # [EN] Azure storage template for the layers (not deployed)
 ├── tests/                       # [EN] Automated test suites (Bronze, Silver, Reconciliation, Gold)
 ├── run_e2e_factory.py           # [EN] Single-command end-to-end orchestrator
 ├── requirements.txt             # [EN] Pinned global dependency manifest
@@ -108,11 +121,11 @@ exl-migration-factory/
 
 ### Datasets Used / 数据集使用声明
 - **French Motor Third-Party Liability Dataset (`freMTPL2freq`, `freMTPL2sev`)**:
-  - Source: Public actuarial research dataset hosted on Hugging Face / OpenML.
-  - Licensing: Open Access (GPL-2.0 / CC0).
+  - Source: public actuarial dataset from the R package `CASdatasets`, also published on OpenML.
+  - Licence: as stated by the dataset's publisher; check it before any reuse. This repository holds only a small sample (`datasets/base/`).
   - Scope: 678,013 risk records and 26,639 claim records.
-- **Synthetic SCD2 Stream**: Generated via `Faker` (MIT License) for simulating policy renewals and rating tier transitions.
-- **Zero Real Client / Personal Data**: All demonstrations and benchmarking use 100% anonymized or synthetic data.
+- **Adversarial test rows**: made up by `engine/recon/advdata.py` (NULLs, repeated keys, mixed case, boundary values).
+- **Zero Real Client / Personal Data**: All demonstrations and benchmarking use public or synthetic data only.
 
 ### AI & Open-Source Tools Declared / 声明采用的 AI 与开源工具
 - **`sqlglot` (MIT)**: Deterministic T-SQL dialect parsing, semantic AST tree extraction, and column-level lineage graph generation.
@@ -125,28 +138,26 @@ exl-migration-factory/
 
 ## 6. Migration Engine, Human Sign-off & Dashboard / 迁移引擎、人工签核与仪表板
 
-Full engine documentation: [`docs/engine.md`](docs/engine.md). Needs a Java runtime (8, 11 or 17) for PySpark.
-引擎完整文档见 [`docs/engine.md`](docs/engine.md)。PySpark 需要 Java 运行环境（8、11 或 17）。
+Full documentation: [`docs/engine.md`](docs/engine.md). 完整文档见 [`docs/engine.md`](docs/engine.md)。
 
-```bash
-# Re-run all 12 jobs against the committed legacy answers, without SQL Server or an LLM
-# 使用已提交的旧系统答案重跑全部 12 个作业（无需 SQL Server 与 LLM）
-python -m engine run-all --legacy golden --llm off
+- **Results are generated, not committed.** `python -m engine run-all` then `python -m engine export` write the status
+  table, reconciliation reports, migrated code and sign-offs to folders that Git ignores. CI regenerates them on every run.
+  **结果是生成的，不提交。** 状态表、对账报告、迁移后的代码与签核记录都写入 Git 忽略的目录；CI 每次运行都会重新生成。
+- **Dashboard**: four pages. *Overview* (status, progress to Gold, Gold deployment gate), *Job detail* (code side by side,
+  lineage, reconciliation, AI audit trail, sign-off and re-run), *Analytics*, and *Try your own code* (paste T-SQL to see
+  whether the fixed rules can translate it).
+  **仪表板**共四页：总览、作业详情（代码对照、血缘、对账、AI 审计、签核与重跑）、分析、试用自己的代码。
+- **Human sign-off**: only Verified / Tested jobs can be signed off, in the dashboard or with
+  `python -m engine approve <job> --reviewer "<name>"`. The Gold gate promotes nothing without it. There is no login in
+  this prototype: the reviewer name is recorded as typed.
+  **人工签核**：只有 Verified / Tested 作业可以签核；没有签核，Gold 门禁不放行。原型没有登录，审阅人姓名按输入记录。
+- **Settings** (`.env`): `MF_OLLAMA_HOST`, `MF_OLLAMA_MODEL`, `MF_SQLSERVER_CONN`, `MF_LAKEHOUSE_ROOT`.
+- **Cloud**: everything runs locally in Delta Lake format. `infra/main.bicep` is an Azure storage template that has
+  **not** been deployed or validated; the `--cloud` options of the `cloud/` scripts are likewise untested by us.
+  **云端**：目前全部在本机以 Delta Lake 格式运行。`infra/main.bicep` 是**未经部署验证**的 Azure 存储模板。
 
-# Publish the status table, reconciliation reports and CI gate packages
-# 发布状态表、对账报告与 CI 门禁作业包
-python -m engine export
-
-# A named reviewer signs off a Verified / Tested job; only then may it reach Gold
-# 具名审阅人签核 Verified / Tested 作业，之后才允许进入 Gold 层
-python -m engine approve J05 --reviewer "Your Name" --notes "read code and report"
-
-# Read-only dashboard: status table, code side by side, lineage, reconciliation, analytics
-# 只读仪表板：状态表、新旧代码对照、血缘、对账报告、分析
-streamlit run ui/app.py
-```
-
-Current results / 当前结果: **7 Verified, 1 Tested, 5 Needs review** across 13 jobs (see `ui/mock_data/status_store.json`).
+Latest results on the team's machine, with the local model on / 团队机器上的最新结果（启用本地模型）:
+**13 jobs: 7 Verified, 1 Tested, 5 Needs review.** With `--llm off` the Tested job (J10) becomes Needs review.
 
 ## 7. AI Tools & Existing Code Declaration / AI 工具与既有代码声明
 

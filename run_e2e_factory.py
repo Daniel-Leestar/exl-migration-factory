@@ -23,6 +23,13 @@ import time
 import subprocess
 from datetime import datetime, timezone
 
+from engine.settings import lakehouse_root, load_env_file
+
+# All layer folders sit under one root, set by MF_LAKEHOUSE_ROOT in the environment or .env (default: data).
+# 所有分层目录都在同一个根目录下,由环境变量或 .env 的 MF_LAKEHOUSE_ROOT 指定(默认 data)。
+load_env_file(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+LAKEHOUSE_ROOT = lakehouse_root()
+
 
 def log_step_header(step_num: int, title_en: str, title_cn: str):
     """Print structured step header in console.
@@ -38,7 +45,7 @@ def ensure_raw_datasets():
     """Ensure raw dataset directory and files exist, creating synthetic fallback if offline.
     确保原始数据集目录与文件存在，若离线则自动生成微型合成数据备用。
     """
-    raw_dir = os.path.join("data", "raw")
+    raw_dir = os.path.join(LAKEHOUSE_ROOT, "raw")
     os.makedirs(raw_dir, exist_ok=True)
     freq_path = os.path.join(raw_dir, "freMTPL2freq.csv")
     sev_path = os.path.join(raw_dir, "freMTPL2sev.csv")
@@ -75,8 +82,8 @@ def run_pipeline() -> int:
     log_step_header(1, "Bronze Layer Ingestion", "Bronze 原始层摄取与元数据注入")
     ensure_raw_datasets()
     from cloud.bronze_ingest import ingest_raw_to_bronze
-    bronze_dir = os.path.join("data", "bronze")
-    raw_dir = os.path.join("data", "raw")
+    bronze_dir = os.path.join(LAKEHOUSE_ROOT, "bronze")
+    raw_dir = os.path.join(LAKEHOUSE_ROOT, "raw")
     ingest_raw_to_bronze(None, os.path.join(raw_dir, "freMTPL2freq.csv"), bronze_dir, "freMTPL2freq")
     ingest_raw_to_bronze(None, os.path.join(raw_dir, "freMTPL2sev.csv"), bronze_dir, "freMTPL2sev")
 
@@ -87,8 +94,8 @@ def run_pipeline() -> int:
     from cloud.silver_contracts import run_silver_contracts_pipeline
     run_silver_contracts_pipeline(
         bronze_root=bronze_dir,
-        silver_root=os.path.join("data", "silver"),
-        quarantine_root=os.path.join("data", "quarantine"),
+        silver_root=os.path.join(LAKEHOUSE_ROOT, "silver"),
+        quarantine_root=os.path.join(LAKEHOUSE_ROOT, "quarantine"),
     )
 
     # --------------------------------------------------------------------------
@@ -108,8 +115,8 @@ def run_pipeline() -> int:
     from cloud.gold_deploy import execute_gold_deployment
     deploy_summary = execute_gold_deployment(
         status_store_path=os.path.join("ui", "mock_data", "status_store.json"),
-        gold_root=os.path.join("data", "gold"),
-        silver_root=os.path.join("data", "silver"),
+        gold_root=os.path.join(LAKEHOUSE_ROOT, "gold"),
+        silver_root=os.path.join(LAKEHOUSE_ROOT, "silver"),
         max_duration_sec=30.0,
         min_rows=1,
     )

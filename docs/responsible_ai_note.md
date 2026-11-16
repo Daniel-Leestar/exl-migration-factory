@@ -61,7 +61,7 @@ flowchart LR
 - **策略**: 负责任的 AI 核心在于展现清晰的系统边界。对于复杂的 SAS 统计过程或极度晦涩的存储过程，坦诚标记为 `Needs review` 并附带可复现反例，远比黑盒化的幻觉代码更具工程价值与专业可信度。
 
 ### Pillar 6: Comprehensive Audit Trail & Prompt Provenance / 全生命周期审计与追溯
-- **Policy**: Every model call is logged per job (`out/<job>/ai_log.jsonl`): time, purpose, model name, full prompt, full answer and duration. Every repair attempt and its reconciliation result is kept in the job's report. AI-written code carries an `AI-GENERATED` banner. Human sign-offs are stored with the reviewer, a UTC timestamp and the SHA-256 of the reviewed code, and stop counting when that code changes.
+- **Policy**: Every model call is logged per job (`out/<job>/ai_log.jsonl`, shown on the dashboard's AI audit tab): time, purpose, model name, full prompt, full answer and duration. Every repair attempt and its reconciliation result is kept in the job's report. AI-written code carries an `AI-GENERATED` banner. Human sign-offs are stored with the reviewer, a UTC timestamp and the SHA-256 of the reviewed code, and stop counting when that code changes.
 - **策略**: 每次模型调用都按作业记录（`out/<job>/ai_log.jsonl`）：时间、用途、模型名称、完整 Prompt、完整回答与耗时。每次修复尝试及其对账结果都保留在作业报告中。AI 生成的代码带有 `AI-GENERATED` 标记。人工签核会记录审阅人、UTC 时间戳以及被审阅代码的 SHA-256，代码一旦变更签核即失效。
 
 ---
@@ -85,17 +85,17 @@ flowchart LR
 - 系统只迁移逻辑，不对人做决策，也不训练模型。真正的风险是**静默的数值漂移**（整数除法、NULL 处理、不区分大小写的比较等），会扭曲下游定价与准备金。与旧系统输出对账是对应的控制手段。对账只能说明与旧系统一致，无法判断旧逻辑本身是否公平。
 
 ### Limitations (current results) / 局限（当前结果）
-- **7 of 12 jobs are Verified, 0 are Tested, 5 are Needs review.** The small local model did not produce matching code for the MERGE job (J08) or the stored-procedure job (J09).
+- **Of 13 jobs, 7 are Verified, 1 is Tested and 5 are Needs review.** The small local model translated one simple job (J10, `UNION ALL`) correctly but did not produce matching code for the MERGE job (J08) or the stored-procedure job (J09).
 - **The three SAS jobs (S01-S03) have no legacy output to compare against** because no SAS runtime was available, so they cannot be rated above Needs review.
 - "Verified" means the output matched legacy on the committed sample, the adversarial data and empty tables. It is evidence from testing, not a mathematical guarantee for all inputs.
 - The deterministic path covers a defined SQL subset (single SELECT, joins, GROUP BY, CASE, common functions). Everything else goes to the LLM path with the reason recorded.
-- **12 个作业中 7 个为 Verified、0 个为 Tested、5 个为 Needs review。** 本地小模型未能为 MERGE 作业（J08）与存储过程作业（J09）生成与旧系统一致的代码。**三个 SAS 作业没有旧系统输出可供对账**（没有 SAS 运行环境），因此只能停留在 Needs review。Verified 表示在已提交样本、对抗数据与空表上与旧系统一致，这是测试证据，而非对所有输入的数学保证。确定性路径只覆盖已定义的 SQL 子集，其余交给 LLM 路径并记录原因。
+- **13 个作业中 7 个为 Verified、1 个为 Tested、5 个为 Needs review。** 本地小模型正确翻译了一个简单作业（J10，`UNION ALL`），但未能为 MERGE 作业（J08）与存储过程作业（J09）生成与旧系统一致的代码。**三个 SAS 作业没有旧系统输出可供对账**（没有 SAS 运行环境），因此只能停留在 Needs review。Verified 表示在已提交样本、对抗数据与空表上与旧系统一致，这是测试证据，而非对所有输入的数学保证。确定性路径只覆盖已定义的 SQL 子集，其余交给 LLM 路径并记录原因。
 
 ---
 
 ## 4. Conclusion & Human-in-the-Loop Sign-off / 结语与人工介入机制
 
-No job reaches the Gold layer on a machine result alone: a named reviewer must sign off (`python -m engine approve <job> --reviewer <name>`), and the sign-off is bound to the exact code that was reviewed.
+No job reaches the Gold layer on a machine result alone: a named reviewer must sign off (in the dashboard, or with `python -m engine approve <job> --reviewer <name>`), and the sign-off is bound to the exact code that was reviewed.
 
 任何作业都不能仅凭机器结果进入 Gold 层：必须由具名审阅人签核，且签核绑定于当时被审阅的那份代码。
 

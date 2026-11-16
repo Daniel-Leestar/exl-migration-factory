@@ -1,7 +1,7 @@
 # Solution Deck Outline (10 slides) / 方案 Deck 大纲（10 页）
 
 > Slide copy for the official deck: problem, approach, architecture, results, Responsible AI, next steps.
-> Every number below comes from `ui/mock_data/status_store.json` as committed. Re-check it before presenting.
+> Every number below comes from the status table of the last run with the local model on. Re-run and re-check before presenting.
 > Architecture and operations slides can reuse the team's existing architecture material; this file covers
 > the story, the engine and the results.
 
@@ -40,19 +40,19 @@ Judging weights to keep in mind: Business Impact 30 · Technical 25 · Innovatio
 - **The label is earned, not declared**: the engine decides the path and the level; metadata cannot override it.
 
 ## Slide 6 — Architecture
-- Reuse the one-page architecture diagram (`docs/architecture_diagram.png`).
+- Reuse the one-page architecture diagram (`docs/architecture_diagram.svg`).
 - Flow: legacy code → engine (rule path / LLM path) → reconciliation → status table → human sign-off → Bronze / Silver / Gold.
 - CI runs the reconciliation gate on every pull request.
 
 ## Slide 7 — Results
-- 12 jobs: 9 T-SQL + 3 SAS.
-- **7 Verified** (all by the rule path, zero model calls) · **0 Tested** · **5 Needs review**.
+- 13 jobs: 10 T-SQL + 3 SAS.
+- **7 Verified** (all by the rule path, zero model calls) · **1 Tested** (J10, translated by the local model) · **5 Needs review**.
 - Verified jobs cover: cleansing, aggregation, LEFT JOIN with zero-fill, ratios, averages, risk tiers, a data-quality check.
 - Each one targets a known trap (e.g. J04 integer division, J05 `AVG` over integers, J01 case-insensitive text).
 - Show the dashboard Overview page here.
 
 ## Slide 8 — What did not work, and why we show it (Responsible AI)
-- J08 (MERGE / SCD2) and J09 (stored procedure, ranking): the small local model did not reach parity in 3 repairs. J09 still differs in 17 rows.
+- J08 (MERGE / SCD2) and J09 (stored procedure, ranking): the small local model did not reach parity in 3 repairs. J09 still differs in 17 rows; J08's code does not run.
 - S01-S03 (SAS): no SAS runtime, so there is no legacy output to compare against. They stay Needs review by design.
 - "Verified" is evidence from testing on defined data, not a guarantee for all inputs.
 - We would rather show five honest Needs review than five unverified "done".
@@ -72,9 +72,10 @@ Judging weights to keep in mind: Business Impact 30 · Technical 25 · Innovatio
 ---
 
 ## Demo video (max 3 minutes) — suggested sequence
-1. (20 s) Overview page: 12 jobs, 7 / 0 / 5, nothing approved yet.
-2. (40 s) Job detail J04: legacy SQL next to PySpark, lineage graph, reconciliation tab with three datasets passing.
-3. (30 s) Terminal: `python -m engine approve J04 --reviewer "<name>"`; refresh; "Approved for Gold" becomes 1.
-4. (30 s) Terminal: try to approve J09 → refused, because it is Needs review.
-5. (40 s) Job detail J09: the reason, 17 differing rows, the counterexample.
-6. (20 s) Analytics page and the CI run on GitHub.
+1. (20 s) Overview: 13 jobs, 7 / 1 / 5, progress bars, nothing signed off yet.
+2. (35 s) Job detail J04: legacy SQL next to PySpark, "why the PySpark looks this way" (integer division), reconciliation verdict.
+3. (30 s) Job detail J10, AI audit tab: the exact prompt and answer, then the reconciliation that made it Tested.
+4. (30 s) Review & actions on J04: tick the box, sign off. Overview now shows 1 signed off; run the Gold deployment gate.
+5. (25 s) Job detail J09: Needs review, 17 differing rows; sign-off is not offered.
+6. (25 s) Try your own code: paste a query, see the rule path and the generated PySpark.
+7. (15 s) Analytics and the CI run on GitHub.

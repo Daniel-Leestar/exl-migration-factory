@@ -174,3 +174,84 @@ def gold_ready(store: dict) -> list[str]:
         job["job_id"] for job in store["jobs"]
         if job.get("status") in ("Verified", "Tested") and (job.get("human_approval") or {}).get("approved") is True
     ]
+
+
+def load_ai_log(ui_dir: Path, job_id: str) -> list[dict]:
+    """Every call made to the AI model for one job, oldest first. Empty when the model was never asked.
+    單一 job 對 AI 模型的每一次呼叫,由舊到新;從未呼叫模型時為空。
+    """
+    path = Path(ui_dir) / "ai_log" / f"{_safe_id(job_id)}.jsonl"
+    if not path.exists():
+        return []
+    calls = []
+    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            calls.append(json.loads(line))
+        except json.JSONDecodeError as error:
+            raise UiDataError(f"AI log at {path} line {number} is not valid JSON: {error}") from error
+    return calls
+
+
+def funnel(store: dict) -> dict[str, int]:
+    """How far the jobs have come: all -> reconciled -> signed off by a person.
+    job 走到哪一步:全部 -> 對帳通過 -> 已有人簽核。
+    """
+    jobs = store["jobs"]
+    return {
+        "jobs": len(jobs),
+        "reconciled": sum(job.get("status") in ("Verified", "Tested") for job in jobs),
+        "signed_off": len(gold_ready(store)),
+    }
+
+
+def next_step(job: dict) -> str:
+    """One sentence telling a reviewer what this job needs next.
+    用一句話告訴審閱者這個 job 接下來需要什麼。
+    """
+    if job.get("status") in ("Verified", "Tested"):
+        if (job.get("human_approval") or {}).get("approved"):
+            return "Signed off. The next Gold deployment will promote this job."
+        if job.get("status") == "Tested":
+            return "AI-translated and reconciled. Read the code and the AI audit trail, then sign it off."
+        return "Reconciled by fixed rules. Read the code and the report, then sign it off."
+    return "Not ready: " + blocker_type(job.get("reason", "")) + ". See the Reconciliation and AI audit tabs."
+
+
+def blocker_type(reason: str) -> str:
+    """Group a free-text reason into a short kind of blocker, for counting.
+    把自由文字的原因歸成簡短的阻擋類型,以便統計。
+    """
+    text = (reason or "").lower()
+    if "no legacy output" in text:
+        return "No legacy answer to compare against"
+    if "llm path is switched off" in text:
+        return "Needs the AI model, which was switched off"
+    if "still differs" in text or "could not produce" in text:
+        return "AI translation did not match legacy"
+    if "rule-generated code differs" in text:
+        return "Rule translation did not match legacy"
+    if "could not be loaded" in text or "internal error" in text:
+        return "Job could not be processed"
+    return "Other"
+
+
+def report_summary(report: dict | None) -> str:
+    """Plain-English verdict of a reconciliation report.
+    對帳報告的白話結論。
+    """
+    if not report:
+        return "No reconciliation report exists for this job."
+    datasets = report.get("datasets") or []
+    checked = [d for d in datasets if d.get("passed") is not None]
+    summary = report.get("summary") or {}
+    if not checked or summary.get("legacy_rows") is None:
+        return "Nothing was compared: there is no legacy output for this job."
+    passed = sum(bool(d.get("passed")) for d in checked)
+    if report.get("overall_passed"):
+        return (f"All {summary['legacy_rows']} legacy rows match on the sample data, "
+                f"and {passed} of {len(checked)} test datasets pass.")
+    return (f"The outputs differ: {summary.get('mismatched_rows')} mismatched rows, row counts "
+            f"{summary['legacy_rows']} (legacy) vs {summary.get('spark_rows')} (Spark); "
+            f"{passed} of {len(checked)} test datasets pass.")

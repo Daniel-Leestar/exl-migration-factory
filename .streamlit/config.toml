@@ -1,7 +1,14 @@
 # Hide Streamlit's own "Deploy" button: it publishes the app to Streamlit Cloud and has nothing to do with the Gold deploy.
-# 隱藏 Streamlit 內建的「Deploy」按鈕：它是把網頁發布到 Streamlit Cloud，與 Gold 部署無關。
+# 隱藏 Streamlit 內建的「Deploy」按鈕:它是把網頁發布到 Streamlit Cloud,與 Gold 部署無關。
 [client]
 toolbarMode = "minimal"
 
 [browser]
 gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#1f6f5c"
+backgroundColor = "#f7f9f8"
+secondaryBackgroundColor = "#eef3f1"
+textColor = "#1c2a26"

@@ -70,3 +70,20 @@ spec_dump.txt
 # Migration engine outputs and local settings / 迁移引擎输出与本地设置
 out/
 spark-warehouse/
+
+# Results of running the engine: regenerate with `python -m engine run-all` then `python -m engine export`.
+# 引擎的执行结果:用 `python -m engine run-all` 再 `python -m engine export` 重新产生。
+ui/mock_data/
+jobs/*/solution.py
+jobs/*/oracle_output.parquet
+jobs/approvals.json
+# The CI fixture is hand-written, not an engine result. / CI 样板是手写的,不是引擎产出。
+!jobs/J00_mock/solution.py
+!jobs/J00_mock/oracle_output.parquet
+
+# Working notes and source material that are not part of the submission.
+# 不属于提交内容的工作笔记与原始资料。
+docs/error-log.md
+docs/specs/
+EXL*.pdf
+EXL*.docx

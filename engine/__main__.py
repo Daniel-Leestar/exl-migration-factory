@@ -14,6 +14,7 @@ Settings come from environment variables or a `.env` file in the project root:
   MF_SQLSERVER_CONN   ODBC connection string for the legacy SQL Server
   MF_OLLAMA_MODEL     model name (default qwen2.5-coder:3b)
   MF_OLLAMA_HOST      Ollama address (default http://localhost:11434)
+  MF_LAKEHOUSE_ROOT   folder for the bronze/silver/gold layers (default data; used by run_e2e_factory.py)
 """
 from __future__ import annotations
 
@@ -29,12 +30,13 @@ from engine.job import load_schemas
 from engine.legacy.runner import LegacyUnavailable, SqlServerRunner
 from engine.llm.client import OllamaClient
 from engine.pipeline import Context, merge_status, run_all, run_job
+from engine.settings import load_env_file, ollama_host, ollama_model
 
 ROOT = Path(__file__).resolve().parent.parent
 
 
 def main(argv: list[str] | None = None) -> int:
-    _load_env_file(ROOT / ".env")
+    load_env_file(ROOT / ".env")
     parser = argparse.ArgumentParser(prog="python -m engine", description="Legacy-to-PySpark migration factory")
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -125,10 +127,7 @@ def main(argv: list[str] | None = None) -> int:
                 return 2
             print(f"legacy oracle: answer files only ({exc})")
     if args.llm == "ollama":
-        ctx.llm = OllamaClient(
-            model=os.environ.get("MF_OLLAMA_MODEL", "qwen2.5-coder:3b"),
-            host=os.environ.get("MF_OLLAMA_HOST", "http://localhost:11434"),
-        )
+        ctx.llm = OllamaClient(model=ollama_model(), host=ollama_host())
 
     if args.command == "run":
         entry = run_job(args.job, ctx)
@@ -138,19 +137,6 @@ def main(argv: list[str] | None = None) -> int:
     status = run_all(args.jobs, ctx, args.only)
     print("summary:", status["summary"])
     return 0
-
-
-def _load_env_file(path: Path) -> None:
-    """Read KEY=VALUE lines into the environment without overriding existing variables.
-    把 KEY=VALUE 各行讀進環境變數,不覆蓋已存在的變數。
-    """
-    if not path.exists():
-        return
-    for line in path.read_text(encoding="utf-8").splitlines():
-        line = line.strip()
-        if line and not line.startswith("#") and "=" in line:
-            key, _, value = line.partition("=")
-            os.environ.setdefault(key.strip(), value.strip())
 
 
 if __name__ == "__main__":

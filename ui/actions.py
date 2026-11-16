@@ -15,7 +15,6 @@ or a trusted team, not an open network.
 from __future__ import annotations
 
 import json
-import os
 import subprocess
 import sys
 import urllib.error
@@ -23,15 +22,16 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 
+from engine import settings as engine_settings
 from engine.approval import ApprovalError, approve, revoke
+from engine.job import JobError, load_schemas
 from ui.data import UiDataError, _safe_id
 
-DEFAULT_OLLAMA_HOST = "http://localhost:11434"
-DEFAULT_OLLAMA_MODEL = "qwen2.5-coder:3b"
 # A local 3b model on a laptop can need several minutes per answer, and a job may take four answers.
 # 筆電上的 3b 本機模型每次回答可能要數分鐘,而一個 job 最多需要四次回答。
 RERUN_TIMEOUT_SECONDS = 45 * 60
 EXPORT_TIMEOUT_SECONDS = 10 * 60
+DEPLOY_TIMEOUT_SECONDS = 15 * 60
 
 
 class ActionError(Exception):
@@ -41,21 +41,14 @@ class ActionError(Exception):
 
 
 def settings(root: Path) -> dict:
-    """Model address and name from the environment, else from `.env`, else the defaults.
-    模型位址與名稱:先取環境變數,再取 `.env`,最後用預設值。
+    """Model address, model name and lakehouse folder: environment first, then `.env`, then defaults.
+    模型位址、模型名稱與 lakehouse 資料夾:先取環境變數,再取 `.env`,最後用預設值。
     """
-    values = {}
-    env_file = Path(root) / ".env"
-    if env_file.exists():
-        for line in env_file.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if line and not line.startswith("#") and "=" in line:
-                key, _, value = line.partition("=")
-                values[key.strip()] = value.strip()
-    values.update({k: v for k, v in os.environ.items() if k.startswith("MF_")})
+    engine_settings.load_env_file(Path(root) / ".env")
     return {
-        "ollama_host": values.get("MF_OLLAMA_HOST") or DEFAULT_OLLAMA_HOST,
-        "ollama_model": values.get("MF_OLLAMA_MODEL") or DEFAULT_OLLAMA_MODEL,
+        "ollama_host": engine_settings.ollama_host(),
+        "ollama_model": engine_settings.ollama_model(),
+        "lakehouse_root": engine_settings.lakehouse_root(),
     }
 
 
@@ -135,6 +128,63 @@ def rerun(root: Path, job_id: str, use_model: bool, runner: Callable = subproces
         if done.returncode != 0:
             raise ActionError(f"`{name}` for {job_id} failed (exit code {done.returncode}):\n{text[-1500:]}")
     return "\n\n".join(output)
+
+
+def deploy_gold(root: Path, runner: Callable = subprocess.run) -> str:
+    """Run the Gold deployment gate: only reconciled AND signed-off jobs are promoted. Returns its output.
+    執行 Gold 部署門禁:只有對帳通過「且」已簽核的 job 會被放行;回傳其輸出。
+
+    Writes under `<lakehouse root>/gold`. Not retried: a refusal or a crash needs a person to look at it.
+    寫入 `<lakehouse 根目錄>/gold`。不重試:被拒或當掉都需要人來看。
+    """
+    root = Path(root)
+    lake = Path(settings(root)["lakehouse_root"])
+    command = [sys.executable, str(Path("cloud") / "gold_deploy.py"),
+               "--status-path", str(_store(root)),
+               "--gold-root", str(lake / "gold"), "--silver-root", str(lake / "silver")]
+    try:
+        done = runner(command, cwd=str(root), capture_output=True, text=True, timeout=DEPLOY_TIMEOUT_SECONDS,
+                      encoding="utf-8", errors="replace")
+    except subprocess.TimeoutExpired as error:
+        raise ActionError(f"the Gold deployment did not finish within {DEPLOY_TIMEOUT_SECONDS // 60} minutes") from error
+    except OSError as error:
+        raise ActionError(f"the Gold deployment could not be started: {error}") from error
+    text = ((done.stdout or "") + (done.stderr or "")).strip()
+    if done.returncode != 0:
+        raise ActionError(f"the Gold deployment failed (exit code {done.returncode}):\n{text[-1500:]}")
+    return text
+
+
+def triage(root: Path, code: str, filename: str) -> dict:
+    """Say how the factory would handle a piece of legacy code, without running or storing it.
+    說明工廠會如何處理一段舊程式;不執行、也不儲存。
+
+    Returns {"language", "path": "IR" | "LLM", "reason", "code", "rules"}. On the rule path `code` is the
+    PySpark the rules produce and `rules` lists the legacy behaviours they reproduced; otherwise `reason`
+    says why the rules cannot translate it. Nothing here calls the AI model or Spark.
+    回傳 {"language", "path": "IR" | "LLM", "reason", "code", "rules"}。走規則路徑時 `code` 是規則產生的
+    PySpark,`rules` 列出重現的舊系統行為;否則 `reason` 說明規則為何無法翻譯。這裡不會呼叫 AI 模型或 Spark。
+    """
+    if not (code or "").strip():
+        raise ActionError("the file is empty")
+    if (filename or "").lower().endswith(".sas"):
+        return {"language": "SAS", "path": "LLM", "code": None, "rules": [],
+                "reason": "SAS program (the rule engine covers T-SQL only)"}
+    # Imported here: the code generator pulls in PySpark, which the other actions do not need.
+    # 在此才 import:程式產生器會載入 PySpark,其他動作用不到。
+    from engine.codegen import generate
+    from engine.ir import OutOfScope
+    from engine.parser import parse_tsql
+
+    try:
+        schemas = load_schemas(Path(root) / "jobs" / "_schemas.yaml")
+    except JobError as error:
+        raise ActionError(str(error)) from error
+    try:
+        generated = generate(parse_tsql(code), schemas)
+    except OutOfScope as outside:
+        return {"language": "T-SQL", "path": "LLM", "code": None, "rules": [], "reason": outside.reason}
+    return {"language": "T-SQL", "path": "IR", "code": generated.code, "rules": list(generated.rules), "reason": ""}
 
 
 def _store(root: Path) -> Path:
