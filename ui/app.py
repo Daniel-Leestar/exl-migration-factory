@@ -47,7 +47,7 @@ COLUMN_HELP = {
     "Reconciled": "Whether the new output matched the legacy output.",
     "Discrepancies": "Number of rows that did not match.",
     "LLM iterations": "How many times the AI model was asked: first try plus repairs.",
-    "Human approved": "Whether a named person signed the job off. Required before Gold.",
+    "Human approved": "Whether a named person approved the job. Required before release.",
     "Reviewer": "Who signed the job off.",
     "Reason": "Why a job still needs review. Empty for passing jobs.",
 }
@@ -148,14 +148,15 @@ def overview(store: dict) -> None:
     cells[1].metric("Verified", metrics["verified"], help=LEVEL_HELP["Verified"])
     cells[2].metric("Tested", metrics["tested"], help=LEVEL_HELP["Tested"])
     cells[3].metric("Needs review", metrics["needs_review"], help=LEVEL_HELP["Needs review"])
-    cells[4].metric("Signed off for Gold", stages["signed_off"], help="Reconciled AND signed off by a person.")
+    cells[4].metric("Approved for release", stages["signed_off"],
+                    help="Reconciled AND approved by a named person. Only these jobs can be released to the Gold layer, the final tables that reports read.")
 
-    st.markdown("##### Progress to the Gold layer")
+    st.markdown("##### Progress to release")
     left, right = st.columns(2)
     total, reconciled = max(stages["jobs"], 1), stages["reconciled"]
     left.progress(reconciled / total, text=f'Reconciled against legacy: {reconciled} of {stages["jobs"]} jobs')
     right.progress(stages["signed_off"] / max(reconciled, 1),
-                   text=f'Signed off by a person: {stages["signed_off"]} of {reconciled} reconciled jobs')
+                   text=f'Approved by a reviewer: {stages["signed_off"]} of {reconciled} reconciled jobs')
 
     st.markdown("##### Jobs")
     left, right = st.columns([3, 1])
@@ -169,27 +170,28 @@ def overview(store: dict) -> None:
     else:
         st.info("No job has the selected status.")
 
-    st.markdown("##### Deploy to Gold")
+    st.markdown("##### Release approved jobs")
     ready = gold_ready(store)
     if ready:
-        st.write(f'{len(ready)} job(s) are reconciled and signed off: {", ".join(ready)}.')
+        st.write(f'{len(ready)} job(s) are reconciled and approved: {", ".join(ready)}.')
     else:
-        st.warning("No job has been signed off yet, so a deployment would promote nothing. A machine result never "
+        st.warning("No job has been approved yet, so a release would publish nothing. A machine result never "
                    "counts as an approval: open a Verified or Tested job and use its Review & actions tab.")
     lake = settings(ROOT)["lakehouse_root"]
-    st.caption(f"Writes to the Gold layer under `{lake}` (set MF_LAKEHOUSE_ROOT in .env to change it). "
-               "Jobs that are not reconciled and signed off are refused by the gate.")
-    if st.button("Run the Gold deployment gate", disabled=not ready):
-        with st.spinner("Running the Gold deployment gate."):
+    st.caption(f"A release runs each approved job's migrated code and writes its output to the Gold layer, the final "
+               f"tables that reports read (folder `{lake}`; set MF_LAKEHOUSE_ROOT in .env to change it). "
+               "Jobs that are not reconciled and approved are refused. Starting Spark takes about a minute.")
+    if st.button("Release approved jobs", disabled=not ready):
+        with st.spinner("Releasing approved jobs. This takes about a minute."):
             try:
                 st.session_state["deploy_output"] = deploy_gold(ROOT)
             except ActionError as error:
                 st.error(str(error))
                 return
-        st.session_state["flash"] = ("success", "Gold deployment finished. See its output on the Overview page.")
+        st.session_state["flash"] = ("success", "Release finished. See its output below.")
         st.rerun()
     if st.session_state.get("deploy_output"):
-        with st.expander("Output of the last Gold deployment"):
+        with st.expander("Output of the last release"):
             st.code(st.session_state["deploy_output"], language="text")
 
     with st.expander("What do the levels and columns mean?"):
@@ -296,12 +298,12 @@ def actions_section(job: dict) -> None:
             finish(lambda: withdraw(ROOT, job_id), f"Sign-off for {job_id} withdrawn.")
     elif job.get("status") in ("Verified", "Tested"):
         st.write("Read the Code and Reconciliation tabs first. Signing off states that you, a person, "
-                 "accept this migrated code for the Gold layer.")
+                 "approve this migrated code for release to the Gold layer (the final tables that reports read).")
         with st.form(f"sign-{job_id}"):
             reviewer = st.text_input("Your name")
             notes = st.text_area("Notes (optional)", placeholder="What you checked, anything to watch")
             confirmed = st.checkbox("I have read the migrated code and the reconciliation report for this job.")
-            if st.form_submit_button("Sign off for Gold", type="primary"):
+            if st.form_submit_button("Approve for release", type="primary"):
                 finish(lambda: sign_off(ROOT, job_id, reviewer, notes, confirmed), f"{job_id} signed off by {reviewer.strip()}.")
         st.caption("There is no login in this demo: the name is recorded as typed. "
                    "The sign-off lapses automatically if the code changes or the job stops passing.")

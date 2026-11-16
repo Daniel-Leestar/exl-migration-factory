@@ -32,6 +32,7 @@ from ui.data import UiDataError, _safe_id
 RERUN_TIMEOUT_SECONDS = 45 * 60
 EXPORT_TIMEOUT_SECONDS = 10 * 60
 DEPLOY_TIMEOUT_SECONDS = 15 * 60
+RELEASE_ALERT_SECONDS = 180
 
 
 class ActionError(Exception):
@@ -141,7 +142,10 @@ def deploy_gold(root: Path, runner: Callable = subprocess.run) -> str:
     lake = Path(settings(root)["lakehouse_root"])
     command = [sys.executable, str(Path("cloud") / "gold_deploy.py"),
                "--status-path", str(_store(root)),
-               "--gold-root", str(lake / "gold"), "--silver-root", str(lake / "silver")]
+               "--gold-root", str(lake / "gold"), "--silver-root", str(lake / "silver"),
+               # A cold Spark start on a laptop takes about a minute, so the duration alert allows for it.
+               # 筆電上 Spark 冷啟動約需一分鐘,因此耗時告警的門檻放寬。
+               "--max-duration", str(RELEASE_ALERT_SECONDS)]
     try:
         done = runner(command, cwd=str(root), capture_output=True, text=True, timeout=DEPLOY_TIMEOUT_SECONDS,
                       encoding="utf-8", errors="replace")

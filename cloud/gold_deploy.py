@@ -163,28 +163,54 @@ def evaluate_admission_gate(job: Dict[str, Any]) -> GateDecision:
 # Gold 业务层数据集生成与平滑降级处理
 # ==============================================================================
 
+class GoldDeploymentError(Exception):
+    """An admitted job could not be deployed; nothing was written for it.
+    已获准入的作业无法部署；没有为它写入任何数据。
+    """
+
+
+def _run_solution(mod: Any) -> Any:
+    """Call a solution's run_job. Solutions that need Spark get the engine's local SparkSession.
+    调用 solution 的 run_job；需要 Spark 的 solution 使用引擎的本地 SparkSession。
+    """
+    try:
+        return mod.run_job(None)  # a solution with its own non-Spark path (the CI fixture) / 自带非 Spark 路径的 solution
+    except RuntimeError:
+        # Run as a script, only cloud/ is on the import path; the engine lives one folder up.
+        # 以脚本方式运行时导入路径只有 cloud/；引擎在上一层目录。
+        root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if root not in sys.path:
+            sys.path.insert(0, root)
+        from engine.sandbox import get_spark
+
+        return mod.run_job(get_spark())
+
+
 def generate_gold_dataset_for_job(job_id: str, silver_root: str = DEFAULT_SILVER_ROOT) -> Any:
     """Load or generate production Gold summary dataset for the given job.
     为指定作业加载或生成高价值 Gold 业务汇总数据集。
     """
     import pandas as pd
 
-    # Try dynamic solution module if available
+    # A job with a published solution.py is deployed by running exactly that code: it is the code that was
+    # reconciled and signed off. If it cannot run, the deployment of this job fails. Nothing else is written
+    # in its place, because data from any other logic would carry an approval it never received.
+    # 有已发布 solution.py 的作业，部署时就执行这份代码：它才是通过对账并经人工签核的代码。
+    # 若无法执行，该作业部署失败，绝不以其他逻辑生成的数据顶替，否则数据会带着它从未获得的签核。
     solution_path = os.path.join("jobs", job_id, "solution.py")
     if os.path.exists(solution_path):
         try:
             spec = importlib.util.spec_from_file_location(f"sol_{job_id}", solution_path)
-            if spec and spec.loader:
-                mod = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(mod)
-                if hasattr(mod, "run_job"):
-                    output = mod.run_job(None)
-                    if hasattr(output, "toPandas"):
-                        return output.toPandas()
-                    elif isinstance(output, pd.DataFrame):
-                        return output
+            mod = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(mod)
+            output = _run_solution(mod)
         except Exception as e:
-            print(f"[Notice] Could not run solution.py for {job_id} ({e}), generating from Silver data...")
+            raise GoldDeploymentError(f"solution.py for {job_id} could not be run: {type(e).__name__}: {e}") from e
+        if hasattr(output, "toPandas"):
+            return output.toPandas()
+        if isinstance(output, pd.DataFrame):
+            return output
+        raise GoldDeploymentError(f"solution.py for {job_id} returned {type(output).__name__}, not a DataFrame")
 
     # Load from Silver layer or raw fallback
     silver_freq_file = os.path.join(silver_root, "freMTPL2freq", "freMTPL2freq_silver.csv")
@@ -279,6 +305,7 @@ def execute_gold_deployment(
     audit_records = []
     sla_alerts = []
     deployed_count = 0
+    failed_count = 0
     blocked_count = 0
 
     print("\n" + "=" * 65)
@@ -305,7 +332,19 @@ def execute_gold_deployment(
         # 执行部署并度量 SLA 耗时
         t0 = time.time()
         print(f"  [DEPLOYING] Job {job_id:<8} | Status: {gate_decision.status:<12} | Running Gold transformation...", end="")
-        gold_df = generate_gold_dataset_for_job(job_id, silver_root=silver_root)
+        try:
+            gold_df = generate_gold_dataset_for_job(job_id, silver_root=silver_root)
+        except GoldDeploymentError as error:
+            failed_count += 1
+            print(f" FAILED: {error}")
+            audit_records.append({
+                "job_id": job_id,
+                "status": gate_decision.status,
+                "action": "FAILED",
+                "reason": str(error),
+                "timestamp": datetime.now(timezone.utc).isoformat(),
+            })
+            continue
         deploy_path = save_gold_dataset(
             gold_df,
             job_id,
@@ -365,13 +404,14 @@ def execute_gold_deployment(
         "total_jobs": len(jobs),
         "deployed_count": deployed_count,
         "blocked_count": blocked_count,
+        "failed_count": failed_count,
         "sla_alerts_count": len(sla_alerts),
         "audit_file": audit_file,
         "alerts_file": alerts_file,
     }
 
     print("-" * 65)
-    print(f"  Summary: Deployed={deployed_count} | Blocked={blocked_count} | SLA Alerts={len(sla_alerts)}")
+    print(f"  Summary: Deployed={deployed_count} | Blocked={blocked_count} | Failed={failed_count} | SLA Alerts={len(sla_alerts)}")
     print(f"  Audit Log: {audit_file}")
     print("=" * 65 + "\n")
 
@@ -400,7 +440,7 @@ def main():
         if args.loop_demo:
             print(f"\n[DEMO SCHEDULER] >>> Triggering Polling Cycle {c+1} of {cycles} at {datetime.now().strftime('%H:%M:%S')}...")
         try:
-            execute_gold_deployment(
+            summary = execute_gold_deployment(
                 status_store_path=args.status_path,
                 gold_root=args.gold_root,
                 silver_root=args.silver_root,
@@ -412,6 +452,10 @@ def main():
         except StatusStoreError as error:
             print(f"[FATAL ERROR] {error}", file=sys.stderr)
             sys.exit(2)
+        if summary["failed_count"]:
+            # An admitted job that could not be deployed is a failure of the run, not a detail.
+            # 已获准入却无法部署的作业意味着本次运行失败，不是可以忽略的细节。
+            sys.exit(1)
         if args.loop_demo and c < cycles - 1:
             print("[DEMO SCHEDULER] Sleeping for 2 seconds before next cycle...")
             time.sleep(2)

@@ -157,3 +157,31 @@ def test_missing_or_broken_status_table_is_an_error():
             json.dump({"metrics": {}}, f)
         with pytest.raises(StatusStoreError, match="jobs"):
             execute_gold_deployment(status_store_path=status_file, gold_root=os.path.join(tmp_dir, "gold"))
+
+
+def test_admitted_job_that_cannot_run_is_failed_not_replaced():
+    """An approved job whose solution.py fails must not be deployed with data from other logic.
+    已签核作业的 solution.py 执行失败时，不得用其他逻辑生成的数据顶替部署。
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        job_dir = os.path.join(tmp_dir, "jobs", "JBAD")
+        os.makedirs(job_dir)
+        with open(os.path.join(job_dir, "solution.py"), "w", encoding="utf-8") as f:
+            f.write("def run_job(spark):\n    raise ValueError('boom')\n")
+        status_file = os.path.join(tmp_dir, "status_store.json")
+        with open(status_file, "w", encoding="utf-8") as f:
+            json.dump({"jobs": [{"job_id": "JBAD", "status": "Verified", "reconciliation_passed": True,
+                                 "human_approval": {"approved": True, "reviewer": "R"}}]}, f)
+        gold_dir = os.path.join(tmp_dir, "gold")
+        previous = os.getcwd()
+        os.chdir(tmp_dir)
+        try:
+            summary = execute_gold_deployment(status_store_path=status_file, gold_root=gold_dir)
+        finally:
+            os.chdir(previous)
+
+        assert (summary["deployed_count"], summary["failed_count"]) == (0, 1)
+        assert not os.path.exists(os.path.join(gold_dir, "JBAD"))
+        with open(summary["audit_file"], "r", encoding="utf-8") as f:
+            record = json.load(f)[0]
+        assert record["action"] == "FAILED" and "boom" in record["reason"]

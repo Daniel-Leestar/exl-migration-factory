@@ -212,7 +212,7 @@ def next_step(job: dict) -> str:
     """
     if job.get("status") in ("Verified", "Tested"):
         if (job.get("human_approval") or {}).get("approved"):
-            return "Signed off. The next Gold deployment will promote this job."
+            return "Approved. The next release will promote this job to the Gold layer."
         if job.get("status") == "Tested":
             return "AI-translated and reconciled. Read the code and the AI audit trail, then sign it off."
         return "Reconciled by fixed rules. Read the code and the report, then sign it off."
