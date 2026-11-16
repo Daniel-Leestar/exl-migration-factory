@@ -146,7 +146,7 @@ python -m engine approve J05 --reviewer "Your Name" --notes "read code and repor
 streamlit run ui/app.py
 ```
 
-Current results / 当前结果: **7 Verified, 0 Tested, 5 Needs review** (see `ui/mock_data/status_store.json`).
+Current results / 当前结果: **7 Verified, 1 Tested, 5 Needs review** across 13 jobs (see `ui/mock_data/status_store.json`).
 
 ## 7. AI Tools & Existing Code Declaration / AI 工具与既有代码声明
 

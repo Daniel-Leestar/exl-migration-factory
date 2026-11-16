@@ -113,12 +113,33 @@ def run_all(jobs_dir: Path, ctx: Context, only: list[str] | None = None) -> dict
         entry = run_job(path, ctx)
         print(f"  {entry['id']:<10} {entry['level']:<13} {entry['path'] or '-':<4} {entry['seconds']:>6}s  {entry['reason']}", flush=True)
         entries.append(entry)
+    return _write_status(ctx.out_dir, entries)
+
+
+def merge_status(out_dir: Path, entry: dict) -> dict:
+    """Put one job's fresh result into the combined status table, keeping every other job as it was.
+    把單一 job 的新結果併入彙總狀態表,其他 job 維持原樣。
+
+    Used after `run` on a single job, so that `export` publishes the re-run without a full `run-all`.
+    A missing or unreadable table is rebuilt from this one entry.
+    用於單一 job 的 `run` 之後,讓 `export` 不必重跑全部就能發布這次結果;狀態表不存在或無法讀取時,以這一筆重建。
+    """
+    path = Path(out_dir) / "status.json"
+    try:
+        entries = json.loads(path.read_text(encoding="utf-8"))["jobs"]
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
+        entries = []
+    entries = sorted([e for e in entries if e.get("id") != entry["id"]] + [entry], key=lambda e: e["id"])
+    return _write_status(Path(out_dir), entries)
+
+
+def _write_status(out_dir: Path, entries: list[dict]) -> dict:
     status = {
         "generated_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
         "summary": {level: sum(e["level"] == level for e in entries) for level in (VERIFIED, TESTED, NEEDS_REVIEW)},
         "jobs": entries,
     }
-    _write_json(ctx.out_dir / "status.json", status)
+    _write_json(out_dir / "status.json", status)
     return status
 
 

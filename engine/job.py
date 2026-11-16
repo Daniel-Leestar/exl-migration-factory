@@ -118,11 +118,18 @@ def _from_file(code_path: Path, job_id: str, meta: dict) -> Job:
 def discover_jobs(jobs_dir: Path) -> list[Path]:
     """List job folders and bare code files, skipping names starting with `_`.
     列出 job 資料夾與單一程式檔,略過以 `_` 開頭的名稱。
+
+    A folder with no legacy code is not a migration job (e.g. a CI fixture that only holds a
+    solution and its answer file), so it is skipped rather than reported as a failed job.
+    沒有舊程式的資料夾不是遷移 job(例如只放解答與答案檔的 CI 樣板),因此略過,不當成失敗的 job。
     """
     found = []
     for entry in sorted(Path(jobs_dir).iterdir()):
         if entry.name.startswith(("_", ".")):
             continue
-        if entry.is_dir() or entry.suffix.lower() in LANGUAGE_BY_SUFFIX:
+        if entry.is_dir():
+            if any(p.name.lower() in ("legacy.sql", "legacy.sas") for p in entry.iterdir()):
+                found.append(entry)
+        elif entry.suffix.lower() in LANGUAGE_BY_SUFFIX:
             found.append(entry)
     return found

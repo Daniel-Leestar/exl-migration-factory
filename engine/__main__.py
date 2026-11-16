@@ -28,7 +28,7 @@ from engine.export import ExportError, export_all
 from engine.job import load_schemas
 from engine.legacy.runner import LegacyUnavailable, SqlServerRunner
 from engine.llm.client import OllamaClient
-from engine.pipeline import Context, run_all, run_job
+from engine.pipeline import Context, merge_status, run_all, run_job
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -132,6 +132,7 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.command == "run":
         entry = run_job(args.job, ctx)
+        merge_status(args.out, entry)
         print(f"{entry['id']}: {entry['level']} ({entry['path'] or '-'}) {entry['reason']}")
         return 0
     status = run_all(args.jobs, ctx, args.only)

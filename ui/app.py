@@ -1,10 +1,10 @@
 """Migration Factory dashboard (Streamlit). Run from the project root: `streamlit run ui/app.py`.
 Migration Factory 儀表板(Streamlit)。在專案根目錄執行:`streamlit run ui/app.py`。
 
-Read-only: it shows what `python -m engine export` published and never changes a status or an approval.
-Approvals are recorded with `python -m engine approve <job> --reviewer <name>`.
-唯讀:只顯示 `python -m engine export` 發布的結果,不會更改任何狀態或核可。
-核可請用 `python -m engine approve <job> --reviewer <名字>` 記錄。
+It shows what `python -m engine export` published. On the "Review & actions" tab of a job a person can
+sign the job off, withdraw a sign-off, or re-run the job; the page itself never decides a status.
+顯示 `python -m engine export` 發布的結果。在 job 的「Review & actions」分頁可以簽核、撤回簽核或重跑;
+頁面本身不會決定任何狀態。
 """
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ import streamlit as st
 # `streamlit run ui/app.py` 只會把 ui/ 放進路徑,不含專案根目錄。
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from ui.actions import ActionError, model_status, rerun, settings, sign_off, withdraw  # noqa: E402
 from ui.data import (LEVELS, ROOT, UiDataError, breakdown, gold_ready, job_rows, lineage_dot,  # noqa: E402
                      load_job_files, load_lineage, load_report, load_store)
 
@@ -28,6 +29,22 @@ LEVEL_HELP = {
     "Tested": "AI-translated; output matched legacy on every dataset. Needs a human read before approval.",
     "Needs review": "Did not match legacy, or there is no legacy output to compare against.",
 }
+# Columns shown by default on the overview; the rest sit behind a toggle and on the job page.
+# 總覽預設顯示的欄位;其餘欄位收在開關後面,並可在 job 頁面看到。
+MAIN_COLUMNS = ["Job", "Name", "Category", "Status", "Human approved", "Reason"]
+COLUMN_HELP = {
+    "Job / Name": "The job's id and what it computes.",
+    "Category": "Kind of job: aggregation, cleansing, join and so on.",
+    "Status": "Verified, Tested or Needs review (see above).",
+    "Human approved": "Whether a named person has signed the job off. Required before Gold.",
+    "Reason": "Why a job still needs review. Empty for passing jobs.",
+    "Dialect": "Legacy language: T-SQL or SAS.",
+    "Path": "IR = translated by fixed rules; LLM = needed the AI model.",
+    "Reconciled": "Whether the new output matched the legacy output.",
+    "Discrepancies": "Number of rows that did not match.",
+    "LLM iterations": "How many times the AI model was asked (first try plus repairs).",
+    "Reviewer": "Who signed the job off.",
+}
 
 
 def colour_status(value: str) -> str:
@@ -37,28 +54,37 @@ def colour_status(value: str) -> str:
 def overview(store: dict) -> None:
     metrics = store["metrics"]
     ready = gold_ready(store)
-    cells = st.columns(6)
+    cells = st.columns(5)
     cells[0].metric("Jobs", metrics["total_jobs"])
     cells[1].metric("Verified", metrics["verified"], help=LEVEL_HELP["Verified"])
     cells[2].metric("Tested", metrics["tested"], help=LEVEL_HELP["Tested"])
     cells[3].metric("Needs review", metrics["needs_review"], help=LEVEL_HELP["Needs review"])
-    cells[4].metric("Reconciled", f'{metrics["pass_rate_pct"]}%')
-    cells[5].metric("Approved for Gold", len(ready), help="Reconciled AND approved by a human reviewer.")
-    st.caption(f'Last export: {store.get("updated_at", "unknown")}')
+    cells[4].metric("Approved for Gold", len(ready), help="Reconciled AND signed off by a person.")
+    with st.expander("What do the levels and columns mean?"):
+        st.markdown("**Levels**")
+        for level in LEVELS:
+            st.markdown(f"- **{level}** - {LEVEL_HELP[level]}")
+        st.markdown("**Columns**")
+        for name, text in COLUMN_HELP.items():
+            st.markdown(f"- **{name}** - {text}")
 
     rows = pd.DataFrame(job_rows(store))
     # Nullable integers: a missing count stays empty instead of turning the column into floats.
     # 可為空的整數:缺值維持空白,而不是讓整欄變成浮點數。
     for name in ("Discrepancies", "LLM iterations"):
         rows[name] = rows[name].astype("Int64")
-    wanted = st.multiselect("Status", LEVELS, default=list(LEVELS))
+    left, right = st.columns([3, 1])
+    wanted = left.multiselect("Status", LEVELS, default=list(LEVELS))
+    every_column = right.toggle("Show all columns", value=False)
     shown = rows[rows["Status"].isin(wanted)]
+    if not every_column:
+        shown = shown[MAIN_COLUMNS]
     st.dataframe(shown.style.map(colour_status, subset=["Status"]), hide_index=True, use_container_width=True,
                  height=35 * (len(shown) + 1) + 3)
     if not ready:
-        st.warning("No job has human approval yet, so the Gold deploy will not promote anything. "
+        st.warning("No job has been signed off yet, so the Gold deploy will not promote anything. "
                    "A machine result never counts as an approval. "
-                   "Record one with: python -m engine approve <job> --reviewer <name>")
+                   "Open a Verified or Tested job on the Job detail page and use the Review & actions tab.")
 
 
 def report_section(report: dict | None) -> None:
@@ -112,7 +138,7 @@ def job_detail(store: dict) -> None:
     if meta.get("trap_category"):
         st.caption(f'Known trap: {meta["trap_category"]}')
 
-    code_tab, lineage_tab, report_tab = st.tabs(["Code", "Lineage", "Reconciliation"])
+    code_tab, lineage_tab, report_tab, actions_tab = st.tabs(["Code", "Lineage", "Reconciliation", "Review & actions"])
     with code_tab:
         left, right = st.columns(2)
         left.markdown(f'**Legacy ({job.get("dialect", "")})**')
@@ -137,6 +163,76 @@ def job_detail(store: dict) -> None:
             st.write(", ".join(lineage["candidate_source_columns"]))
     with report_tab:
         report_section(load_report(UI_DIR, job_id))
+    with actions_tab:
+        actions_section(job)
+
+
+@st.cache_data(ttl=15, show_spinner=False)
+def cached_model_status(host: str, model: str) -> tuple[bool, str]:
+    # Cached briefly so an unreachable server does not slow down every click.
+    # 短暫快取,避免連不上伺服器時每次點擊都變慢。
+    return model_status(host, model)
+
+
+def finish(action, message: str) -> None:
+    """Run an action. On success reload the page data and show the message; a refusal is shown in place,
+    so the person stays on the form they were filling in.
+    執行一個動作。成功時重新載入頁面資料並顯示訊息;被拒絕時就地顯示原因,讓使用者留在原本填寫的表單。
+    """
+    try:
+        action()
+    except ActionError as error:
+        st.error(str(error))
+        return
+    st.session_state["flash"] = ("success", message)
+    st.rerun()
+
+
+def actions_section(job: dict) -> None:
+    job_id, approval = job["job_id"], job.get("human_approval") or {}
+
+    st.markdown("#### Sign-off")
+    if approval.get("approved"):
+        st.success(f'Signed off by {approval.get("reviewer")} at {approval.get("timestamp")}.')
+        if st.button("Withdraw sign-off", key=f"withdraw-{job_id}"):
+            finish(lambda: withdraw(ROOT, job_id), f"Sign-off for {job_id} withdrawn.")
+    elif job.get("status") in ("Verified", "Tested"):
+        st.write("Read the Code and Reconciliation tabs first. Signing off states that you, a person, "
+                 "accept this migrated code for the Gold layer.")
+        with st.form(f"sign-{job_id}"):
+            reviewer = st.text_input("Your name")
+            notes = st.text_area("Notes (optional)", placeholder="What you checked, anything to watch")
+            confirmed = st.checkbox("I have read the migrated code and the reconciliation report for this job.")
+            if st.form_submit_button("Sign off for Gold", type="primary"):
+                finish(lambda: sign_off(ROOT, job_id, reviewer, notes, confirmed), f"{job_id} signed off by {reviewer.strip()}.")
+        st.caption("There is no login in this demo: the name is recorded as typed. "
+                   "The sign-off lapses automatically if the code changes or the job stops passing.")
+    else:
+        st.info("Only Verified or Tested jobs can be signed off. This job still needs review: "
+                + (job.get("reason") or "no reason recorded"))
+
+    st.divider()
+    st.markdown("#### Re-run this job")
+    config = settings(ROOT)
+    ready, message = cached_model_status(config["ollama_host"], config["ollama_model"])
+    (st.success if ready else st.warning)(f"Local AI model: {message}")
+    use_model = st.checkbox("Use the local AI model for parts the fixed rules cannot translate",
+                            value=ready, disabled=not ready, key=f"model-{job_id}")
+    st.caption("Runs the engine in a separate process, then republishes the results. With the AI model this can take "
+               "several minutes. If the migrated code changes, an existing sign-off is cancelled.")
+    if st.button("Re-run", key=f"rerun-{job_id}"):
+        with st.spinner(f"Re-running {job_id}. Keep this page open."):
+            try:
+                st.session_state["rerun_output"] = (job_id, rerun(ROOT, job_id, use_model))
+            except ActionError as error:
+                st.error(str(error))
+                return
+        st.session_state["flash"] = ("success", f"{job_id} re-run and republished.")
+        st.rerun()
+    last = st.session_state.get("rerun_output")
+    if last and last[0] == job_id:
+        with st.expander("Output of the last re-run"):
+            st.code(last[1], language="text")
 
 
 def analytics(store: dict) -> None:
@@ -162,10 +258,12 @@ def main() -> None:
     st.title("Migration Factory - legacy to PySpark")
     try:
         store = load_store(UI_DIR)
-        page = st.sidebar.radio("Page", ["Overview", "Job detail", "Analytics"])
-        st.sidebar.caption("Levels")
-        for level in LEVELS:
-            st.sidebar.markdown(f"**{level}** - {LEVEL_HELP[level]}")
+        page = st.sidebar.radio("Page", ["Overview", "Job detail", "Analytics"], label_visibility="collapsed")
+        st.sidebar.divider()
+        st.sidebar.caption(f'Last export: {store.get("updated_at", "unknown")}')
+        flash = st.session_state.pop("flash", None)
+        if flash:
+            (st.success if flash[0] == "success" else st.error)(flash[1])
         {"Overview": overview, "Job detail": job_detail, "Analytics": analytics}[page](store)
     except UiDataError as error:
         st.error(str(error))

@@ -1,0 +1,24 @@
+job_id: J10
+name: Young and senior driver segments (UNION ALL)
+source_dialect: tsql
+expected_path: LLM
+target_layer: silver
+category: Set operation
+trap_category: UNION ALL is outside the rule engine; NULL ages must fall in neither
+  segment
+sources:
+- table_name: policy
+  schema: dbo
+primary_keys:
+- IDpol
+- Segment
+columns:
+- name: IDpol
+  type: INT
+  compare_mode: exact
+- name: DrivAge
+  type: INT
+  compare_mode: exact
+- name: Segment
+  type: INT
+  compare_mode: exact

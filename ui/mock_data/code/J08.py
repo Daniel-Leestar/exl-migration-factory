@@ -6,43 +6,52 @@ def run(spark, tables):
     dim_policy = tables['dim_policy']
     policy_changes = tables['policy_changes']
 
-    # Convert BonusMalus to Decimal for accurate comparison
-    dim_policy = dim_policy.withColumn('BonusMalus', F.col('BonusMalus').cast(Decimal(10, 2)))
-    policy_changes = policy_changes.withColumn('BonusMalus', F.col('BonusMalus').cast(Decimal(10, 2)))
-
     # Merge logic
-    changes = dim_policy.alias('d').merge(
+    changes = dim_policy.alias('d').join(
         policy_changes.alias('s'),
-        F.col('d.IDpol') == F.col('s.IDpol') & F.col('d.IsCurrent') == 1
-    ).whenMatchedAnd(
-        (F.col('d.BonusMalus') != F.col('s.BonusMalus')) | (F.col('d.Area') != F.col('s.Area'))
-    ).update(
-        F.col('d.ValidTo').set(F.col('s.ChangeDate')),
-        F.col('d.IsCurrent').set(0)
-    ).whenNotMatchedByTarget().insert(
-        F.col('s.IDpol'),
-        F.col('s.BonusMalus'),
-        F.col('s.Area'),
-        F.col('s.ChangeDate'),
-        F.lit(None),
-        F.lit(1)
-    ).select(
+        F.col('d.IDpol') == F.col('s.IDpol') & F.col('d.IsCurrent') == 1,
+        'left'
+    ).withColumn(
         'MergeAction',
-        's.IDpol',
-        's.BonusMalus',
-        's.Area',
-        's.ChangeDate'
-    )
-
-    # Filter changes to only include UPDATE actions
-    changes = changes.filter(F.col('MergeAction') == 'UPDATE')
-
-    # Output the final DataFrame
-    return changes.select(
-        'IDpol',
-        'BonusMalus',
-        'Area',
-        'ValidFrom',
+        F.when(
+            (F.col('d.BonusMalus') != F.col('s.BonusMalus')) | (F.col('d.Area') != F.col('s.Area')),
+            'UPDATE'
+        ).otherwise(
+            F.when(
+                F.col('d.ValidTo').isNull(),
+                'INSERT'
+            ).otherwise(
+                'NO_CHANGE'
+            )
+        )
+    ).withColumn(
         'ValidTo',
-        'IsCurrent'
+        F.when(
+            F.col('MergeAction') == 'UPDATE',
+            F.col('s.ChangeDate')
+        ).otherwise(
+            F.col('d.ValidTo')
+        )
+    ).withColumn(
+        'IsCurrent',
+        F.when(
+            F.col('MergeAction') == 'UPDATE',
+            0
+        ).otherwise(
+            F.when(
+                F.col('MergeAction') == 'INSERT',
+                1
+            ).otherwise(
+                F.col('d.IsCurrent')
+            )
+        )
+    ).select(
+        F.col('s.IDpol').cast('int'),
+        F.col('s.BonusMalus').cast('int'),
+        F.col('s.Area').cast('string'),
+        F.col('s.ChangeDate').cast('date'),
+        F.col('IsCurrent').cast('int')
     )
+
+    # Output the result
+    return changes

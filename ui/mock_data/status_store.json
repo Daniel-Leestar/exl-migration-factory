@@ -1,11 +1,11 @@
 {
-  "updated_at": "2026-11-14T16:21:06+00:00",
+  "updated_at": "2026-11-16T00:33:09+00:00",
   "metrics": {
-    "total_jobs": 12,
+    "total_jobs": 13,
     "verified": 7,
-    "tested": 0,
+    "tested": 1,
     "needs_review": 5,
-    "pass_rate_pct": 58.33
+    "pass_rate_pct": 61.54
   },
   "jobs": [
     {
@@ -136,7 +136,7 @@
       "status": "Needs review",
       "reconciliation_passed": false,
       "discrepancies": null,
-      "reason": "still differs from legacy after 3 repair(s): code failed to run: TypeError: optional argument must be a context",
+      "reason": "still differs from legacy after 3 repair(s): code failed to run: PySparkValueError: [CANNOT_CONVERT_COLUMN_INTO_BOOL] Cannot convert column into bool: please use '&' for 'and', '|' for 'or', '~' for 'not' when building DataFr",
       "human_approval": {
         "approved": false,
         "reviewer": null,
@@ -162,6 +162,24 @@
         "notes": ""
       },
       "llm_iterations": 4
+    },
+    {
+      "job_id": "J10",
+      "name": "Young and senior driver segments (UNION ALL)",
+      "category": "Set operation",
+      "dialect": "T-SQL",
+      "path": "LLM",
+      "status": "Tested",
+      "reconciliation_passed": true,
+      "discrepancies": 0,
+      "reason": "",
+      "human_approval": {
+        "approved": false,
+        "reviewer": null,
+        "timestamp": null,
+        "notes": ""
+      },
+      "llm_iterations": 1
     },
     {
       "job_id": "S01",

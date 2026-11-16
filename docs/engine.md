@@ -84,6 +84,13 @@ Optional services:
 Drop any `.sql` file into `jobs/` and it runs through the same pipeline; what cannot be handled
 becomes *Needs review* with a reason. Nothing crashes.
 
+`run` on one job also updates that job's entry in `out/status.json`, so a following `export` publishes it
+without a full `run-all`. A folder under `jobs/` with no `legacy.sql` / `legacy.sas` (for example the CI fixture
+`J00_mock`) is not a migration job and is skipped.
+
+`jobs/J10` (`UNION ALL`) is a deliberately small job outside the rule engine: it shows the LLM path ending in
+*Tested* when the local model's translation matches SQL Server on all three datasets.
+
 ## Job package (`jobs/<JOB_ID>/`)
 
 `meta.yaml` follows the team's frozen interface contract; settings only the engine needs sit under `engine:`.
@@ -147,9 +154,19 @@ approved by a person. A reviewer reads the code and the reconciliation report in
 .venv\Scripts\python -m streamlit run ui\app.py
 ```
 
-Read-only. Three pages: **Overview** (headline numbers and the status table), **Job detail** (legacy code next
-to PySpark, lineage graph, reconciliation report) and **Analytics** (by dialect and by path, plus why jobs
-still need review). It reads only committed files under `ui/mock_data/` and `jobs/`, so it works on a fresh clone.
+Three pages: **Overview** (headline numbers and a short status table; the other columns sit behind a toggle),
+**Job detail** (legacy code next to PySpark, lineage graph, reconciliation report, and a **Review & actions** tab)
+and **Analytics** (by dialect and by path, plus why jobs still need review). Viewing needs only the committed files
+under `ui/mock_data/` and `jobs/`, so it works on a fresh clone.
+
+The **Review & actions** tab (`ui/actions.py`) lets a person:
+
+- **Sign off** a Verified / Tested job (name, optional notes, and a tick confirming they read the code and the
+  report) or withdraw a sign-off. It writes the same record as `python -m engine approve`.
+- **Re-run** the job: the engine runs in a separate process (`engine run <job>` then `engine export`). The tab shows
+  whether the local model server is reachable; without it the job can still be re-run with the model off.
+
+There is no login: the reviewer name is recorded as typed. That is acceptable for a demo or a trusted team only.
 
 ## Engine outputs (`out/`, not committed)
 

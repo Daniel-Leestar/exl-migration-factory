@@ -26,14 +26,19 @@ Test list / 測試清單
     每次模型呼叫都記錄 prompt、回答與模型名稱
 12. a bare .sql file loads as a job with defaults; a folder without code is an error
     單一 .sql 檔可用預設值載入成 job;沒有程式碼的資料夾會報錯
+13. job discovery skips folders that hold no legacy code (CI fixtures) and names starting with `_`
+    job 探索會略過沒有舊程式的資料夾(CI 樣板)與以 `_` 開頭的名稱
+14. merging one job's result into the status table replaces that job only and keeps the counts right
+    把單一 job 的結果併入狀態表時只取代該 job,且統計數字正確
 """
 import json
 from decimal import Decimal as D
 
 import pytest
 
-from engine.job import JobError, load_job
+from engine.job import JobError, discover_jobs, load_job
 from engine.llm.client import FakeLLM, LLMError, LoggedLLM
+from engine.pipeline import merge_status
 from engine.llm.translator import describe_failure, extract_code
 from engine.model import Column, Table
 from engine.parser import parse_tsql
@@ -172,3 +177,31 @@ def test_job_loading(tmp_path):
     (folder / "meta.yaml").write_text("job_id: J50\nsources:\n  - table_name: claims\nprimary_keys: [IDpol]\n", encoding="utf-8")
     job = load_job(folder)
     assert (job.id, job.language, job.inputs, job.primary_key) == ("J50", "sas", ["claims"], ["IDpol"])
+
+
+# Purpose: a CI fixture folder (solution + answer file, no legacy code) is not a migration job.
+# 目的:CI 樣板資料夾(只有解答與答案檔、沒有舊程式)不是遷移 job。
+def test_discovery_skips_folders_without_legacy_code(tmp_path):
+    (tmp_path / "J00_mock").mkdir()
+    (tmp_path / "J00_mock" / "solution.py").write_text("def run_job(spark): ...", encoding="utf-8")
+    (tmp_path / "J01").mkdir()
+    (tmp_path / "J01" / "legacy.sql").write_text("SELECT 1 AS a FROM t", encoding="utf-8")
+    (tmp_path / "S01").mkdir()
+    (tmp_path / "S01" / "legacy.sas").write_text("data a; set b; run;", encoding="utf-8")
+    (tmp_path / "loose.sql").write_text("SELECT 1 AS a FROM t", encoding="utf-8")
+    (tmp_path / "_schemas.yaml").write_text("t:\n  a: int\n", encoding="utf-8")
+    assert sorted(p.name for p in discover_jobs(tmp_path)) == ["J01", "S01", "loose.sql"]
+
+
+# Purpose: re-running one job must not drop or change the other jobs in the status table.
+# 目的:重跑單一 job 不得弄丟或改動狀態表裡的其他 job。
+def test_merge_status_replaces_only_that_job(tmp_path):
+    merge_status(tmp_path, {"id": "J02", "level": "Needs review"})
+    merge_status(tmp_path, {"id": "J01", "level": "Verified"})
+    status = merge_status(tmp_path, {"id": "J02", "level": "Tested"})
+    assert [(e["id"], e["level"]) for e in status["jobs"]] == [("J01", "Verified"), ("J02", "Tested")]
+    assert status["summary"] == {"Verified": 1, "Tested": 1, "Needs review": 0}
+    assert json.loads((tmp_path / "status.json").read_text(encoding="utf-8"))["jobs"] == status["jobs"]
+
+    (tmp_path / "status.json").write_text("not json", encoding="utf-8")
+    assert [e["id"] for e in merge_status(tmp_path, {"id": "J03", "level": "Verified"})["jobs"]] == ["J03"]
