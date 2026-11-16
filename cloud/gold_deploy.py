@@ -3,9 +3,9 @@ Gold 业务层自动化部署、调度与 SLA 告警引擎。
 
 Owner / 负责人: Tianyue Li / 李天悦
 Module Function / 模块功能:
-  1. Governance Gate: Reads ui/mock_data/status_store.json. Auto-generates standard realistic
-     status store if missing, ensuring decoupled out-of-the-box pipeline and UI operations.
-     治理门禁：读取 ui/mock_data/status_store.json。若不存在则自动生成标准真实的默认状态表，确保解耦开箱即用。
+  1. Governance Gate: Reads ui/mock_data/status_store.json, published by `python -m engine export`.
+     A missing or broken status table stops the deployment; the gate never invents job results.
+     治理门禁：读取 `python -m engine export` 发布的 ui/mock_data/status_store.json。状态表缺失或损坏即终止发布，门禁绝不虚构作业结果。
   2. Strict Admission Rule: ONLY deploy jobs with status in ['Verified', 'Tested'] AND human_approval.approved=True.
      Logs [BLOCKED] explicitly for unapproved or 'Needs review' jobs.
      严格准入准则：仅允许状态为 'Verified' 或 'Tested' 且已获得人工审批 (approved=True) 的作业入库，显式记录拦截日志。
@@ -51,230 +51,33 @@ DEFAULT_SILVER_ROOT = os.path.join("data", "silver")
 # 状态存储初始化器 (契约优先与假数据驱动解耦)
 # ==============================================================================
 
-def ensure_default_status_store(status_path: str = DEFAULT_STATUS_STORE_PATH) -> Dict[str, Any]:
-    """Ensure a realistic, contract-compliant status_store.json exists.
-    确保存在符合全员接口契约的真实感 status_store.json 文件。
+class StatusStoreError(Exception):
+    """The status table is missing or unreadable, so no deployment decision can be made.
+    状态表缺失或无法读取，因此无法做出任何发布决定。
     """
-    if os.path.exists(status_path):
-        try:
-            with open(status_path, "r", encoding="utf-8") as f:
-                return json.load(f)
-        except Exception:
-            pass
 
-    os.makedirs(os.path.dirname(status_path), exist_ok=True)
-    now_utc = datetime.now(timezone.utc).isoformat()
 
-    default_store = {
-        "updated_at": now_utc,
-        "metrics": {
-            "total_jobs": 12,
-            "verified": 8,
-            "tested": 2,
-            "needs_review": 2,
-            "pass_rate_pct": 83.33,
-        },
-        "jobs": [
-            {
-                "job_id": "J00_mock",
-                "name": "mock_policy_reconciliation",
-                "category": "ETL",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Tianyue Li",
-                    "timestamp": now_utc,
-                    "notes": "Parity confirmed against SQL Server 2022 baseline.",
-                },
-            },
-            {
-                "job_id": "J01",
-                "name": "policy_cleaning_and_bucketing",
-                "category": "ETL",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Neeraj",
-                    "timestamp": now_utc,
-                    "notes": "Case sensitivity & exposure capping verified.",
-                },
-            },
-            {
-                "job_id": "J02",
-                "name": "claim_severity_join",
-                "category": "Core",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Pin-Yun",
-                    "timestamp": now_utc,
-                    "notes": "Outer join claim amount match zero diff.",
-                },
-            },
-            {
-                "job_id": "J03",
-                "name": "vehicle_age_risk_factors",
-                "category": "Actuarial",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Tianyue Li",
-                    "timestamp": now_utc,
-                    "notes": "Aggregation logic verified.",
-                },
-            },
-            {
-                "job_id": "J04",
-                "name": "driver_demographic_loss_ratio",
-                "category": "Actuarial",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Neeraj",
-                    "timestamp": now_utc,
-                    "notes": "Self-healing loop 2 fixed integer division truncation.",
-                },
-            },
-            {
-                "job_id": "J05",
-                "name": "bonus_malus_transition_mart",
-                "category": "Mart",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Pin-Yun",
-                    "timestamp": now_utc,
-                    "notes": "Boundary parity 100%.",
-                },
-            },
-            {
-                "job_id": "J06",
-                "name": "regional_density_exposure_cube",
-                "category": "Cube",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Tianyue Li",
-                    "timestamp": now_utc,
-                    "notes": "Cube groupings confirmed.",
-                },
-            },
-            {
-                "job_id": "J07",
-                "name": "actuarial_triangle_claim_count",
-                "category": "Actuarial",
-                "dialect": "T-SQL",
-                "path": "IR",
-                "status": "Verified",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Neeraj",
-                    "timestamp": now_utc,
-                    "notes": "Triangle aggregation parity verified.",
-                },
-            },
-            {
-                "job_id": "S01",
-                "name": "sas_first_claim_dedup",
-                "category": "Actuarial",
-                "dialect": "SAS",
-                "path": "LLM",
-                "status": "Tested",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Pin-Yun",
-                    "timestamp": now_utc,
-                    "notes": "FIRST.IDpol translated to Window partition row_number == 1.",
-                },
-            },
-            {
-                "job_id": "S02",
-                "name": "sas_actuarial_banding",
-                "category": "Actuarial",
-                "dialect": "SAS",
-                "path": "LLM",
-                "status": "Tested",
-                "reconciliation_passed": True,
-                "discrepancies": 0,
-                "human_approval": {
-                    "approved": True,
-                    "reviewer": "Tianyue Li",
-                    "timestamp": now_utc,
-                    "notes": "SAS format proc step mapped to Spark Case-When.",
-                },
-            },
-            {
-                "job_id": "J09",
-                "name": "complex_cursor_procedure",
-                "category": "Legacy SP",
-                "dialect": "T-SQL",
-                "path": "LLM",
-                "status": "Needs review",
-                "reconciliation_passed": False,
-                "discrepancies": 142,
-                "human_approval": {
-                    "approved": False,
-                    "reviewer": None,
-                    "timestamp": None,
-                    "notes": "Dynamic SQL loop requires manual actuarial audit. Blocked from Gold.",
-                },
-            },
-            {
-                "job_id": "S03",
-                "name": "sas_macro_iterative_pricing",
-                "category": "Actuarial Macro",
-                "dialect": "SAS",
-                "path": "LLM",
-                "status": "Needs review",
-                "reconciliation_passed": False,
-                "discrepancies": 87,
-                "human_approval": {
-                    "approved": False,
-                    "reviewer": None,
-                    "timestamp": None,
-                    "notes": "Iterative do-loop over pricing matrix exceeded 3 self-healing attempts.",
-                },
-            },
-        ],
-    }
+def load_status_store(status_path: str = DEFAULT_STATUS_STORE_PATH) -> Dict[str, Any]:
+    """Load the status table published by `python -m engine export`.
+    读取 `python -m engine export` 发布的状态表。
 
-    with open(status_path, "w", encoding="utf-8") as f:
-        json.dump(default_store, f, indent=2, ensure_ascii=False)
-
-    print(f"[StatusStore] Created default status store: {status_path}")
-    return default_store
+    A missing or broken table is an error. The gate never invents job results: promoting data on
+    made-up statuses or approvals would defeat the purpose of the gate.
+    状态表缺失或损坏即报错。门禁绝不虚构作业结果：依据虚构的状态或审批发布数据，会使门禁失去意义。
+    """
+    try:
+        with open(status_path, "r", encoding="utf-8") as f:
+            store = json.load(f)
+    except FileNotFoundError as error:
+        raise StatusStoreError(
+            f"status table not found at {status_path}; run `python -m engine run-all` and "
+            "`python -m engine export` first"
+        ) from error
+    except json.JSONDecodeError as error:
+        raise StatusStoreError(f"status table at {status_path} is not valid JSON: {error}") from error
+    if not isinstance(store, dict) or not isinstance(store.get("jobs"), list):
+        raise StatusStoreError(f"status table at {status_path} has no `jobs` list")
+    return store
 
 
 # ==============================================================================
@@ -468,7 +271,7 @@ def execute_gold_deployment(
     """Execute admission check, deploy approved jobs to Gold, and monitor SLAs.
     执行准入校验，将合规审批作业部署至 Gold 层并严格监控 SLA。
     """
-    store = ensure_default_status_store(status_store_path)
+    store = load_status_store(status_store_path)
     jobs = store.get("jobs", [])
 
     os.makedirs(gold_root, exist_ok=True)
@@ -596,15 +399,19 @@ def main():
     for c in range(cycles):
         if args.loop_demo:
             print(f"\n[DEMO SCHEDULER] >>> Triggering Polling Cycle {c+1} of {cycles} at {datetime.now().strftime('%H:%M:%S')}...")
-        execute_gold_deployment(
-            status_store_path=args.status_path,
-            gold_root=args.gold_root,
-            silver_root=args.silver_root,
-            cloud=args.cloud,
-            cloud_adls_prefix=args.cloud_prefix,
-            max_duration_sec=args.max_duration,
-            min_rows=args.min_rows,
-        )
+        try:
+            execute_gold_deployment(
+                status_store_path=args.status_path,
+                gold_root=args.gold_root,
+                silver_root=args.silver_root,
+                cloud=args.cloud,
+                cloud_adls_prefix=args.cloud_prefix,
+                max_duration_sec=args.max_duration,
+                min_rows=args.min_rows,
+            )
+        except StatusStoreError as error:
+            print(f"[FATAL ERROR] {error}", file=sys.stderr)
+            sys.exit(2)
         if args.loop_demo and c < cycles - 1:
             print("[DEMO SCHEDULER] Sleeping for 2 seconds before next cycle...")
             time.sleep(2)

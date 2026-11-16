@@ -3,7 +3,7 @@
 
 > **EXL & UCD Data & AI Hackathon 2026**  
 > **Challenge Track / 赛题:** Challenge 03: Agentic Data Platform Modernisation (Legacy ETL/SAS to Azure Lakehouse)  
-> **Team / 战队:** UCD Team (Challenge 03)  
+> **Team / 战队:** DNA  
 > **Team Members & Ownership / 团队成员与分工:**
 > - **Tianyue Li / 李天悦 (DevOps & Lakehouse Lead)**: Cloud lakehouse architecture, Bronze ingestion, Silver data contracts & quarantine routing, Gold governance admission gates, CI/CD automated reconciliation pipeline, and FinOps/SLA alerts.
 > - **Pin-Yun Kuo / 郭小妘 (Compiler Lead)**: Deterministic migration engine, `sqlglot` AST parsing, IR Schema v0, deterministic PySpark codegen, row-by-row reconciliation engine, and minimal failure shrinker.
@@ -18,10 +18,10 @@ Enterprises face massive hurdles modernizing legacy data estates: tens of thousa
 **EXL Migration Factory** is a working prototype for that kind of estate (the challenge brief describes about 1,200 ETL jobs and 400 SAS procedures), demonstrated on **13 representative jobs** and targeting a modern Azure Lakehouse (PySpark + Delta Lake) under a non-negotiable architectural doctrine:
 
 > ### **[Team First Principle: AI Proposes, the Compiler Disposes]**
-> Large Language Models (LLMs) never hold autonomous write access or production authority. Fixed rules translate what they can through a typed Intermediate Representation (IR); an LLM proposes PySpark only for what the rules cannot handle, and its code is statically checked before it runs. Every candidate PySpark script must pass automated, mathematical, record-for-record reconciliation against the legacy system's own output recorded from SQL Server. Jobs failing reconciliation are capped at 3 self-healing iterations before being safely degraded to `Needs review`. Zero defective code enters the Gold production layer.
+> Large Language Models (LLMs) never hold autonomous write access or production authority. Fixed rules translate what they can through a typed Intermediate Representation (IR); an LLM proposes PySpark only for what the rules cannot handle, and its code is statically checked before it runs. Every candidate PySpark script must pass automated, mathematical, record-for-record reconciliation against the legacy system's own output recorded from SQL Server. Jobs failing reconciliation are capped at 3 self-healing iterations before being safely degraded to `Needs review`. Code that fails reconciliation, or that no person has signed off, is not promoted to the Gold layer.
 >
 > ### **【团队研发第一铁律：AI Proposes, the Compiler Disposes】**
-> 大语言模型（LLM）绝不拥有自主写库权或生产发布权。固定规则通过带类型的中间表示（IR）翻译其能处理的部分；规则无法处理的部分才由 LLM 提出 PySpark 代码，且代码在执行前先经过静态检查。所有候选 PySpark 脚本必须通过与从 SQL Server 录制的旧系统输出的逐行对账。未通过对账的作业最多允许 3 次自愈重试，逾期安全降级为 `Needs review`，绝不允许任何带病代码注入 Gold 生产层。
+> 大语言模型（LLM）绝不拥有自主写库权或生产发布权。固定规则通过带类型的中间表示（IR）翻译其能处理的部分；规则无法处理的部分才由 LLM 提出 PySpark 代码，且代码在执行前先经过静态检查。所有候选 PySpark 脚本必须通过与从 SQL Server 录制的旧系统输出的逐行对账。未通过对账的作业最多允许 3 次自愈重试，逾期安全降级为 `Needs review`，未通过对账或未经人工签核的代码不会发布到 Gold 层。
 
 ---
 
@@ -72,7 +72,7 @@ exl-migration-factory/
 │   ├── bronze_ingest.py         # [EN] Raw CSV -> Delta Lake (Append-only Bronze with audit metadata)
 │   │                            # [CN] 原始数据到 Delta Lake Bronze 层摄取管道 (只追加与元数据注入)
 │   ├── silver_contracts.py      # [EN] Schema casting, domain validation & Quarantine isolation routing
-│   │                            # [CN] Silver 层数据契约校验与 Quarantine 隔离分流引擎 (拦截 1,224 异常)
+│   │                            # [CN] Silver 层数据契约校验与 Quarantine 隔离分流引擎 
 │   └── gold_deploy.py           # [EN] Production admission gate, automated deployment & SLA alert engine
 │                                # [CN] Gold 生产层严格准入门禁、自动发布与 SLA 告警引擎
 ├── jobs/                        # [EN] 13 migration jobs (J01-J10, S01-S03) plus the CI fixture J00_mock
@@ -86,8 +86,8 @@ exl-migration-factory/
 ├── data/                        # [EN] Physical Lakehouse tiers (.gitignore protected, clean fallbacks)
 │   ├── raw/                     # [EN] Raw benchmark files (freMTPL2freq.csv, freMTPL2sev.csv)
 │   ├── bronze/                  # [EN] Bronze Delta Lake tables
-│   ├── silver/                  # [EN] Silver Delta Lake tables (99.82% pass rate)
-│   ├── quarantine/              # [EN] Dead-Letter Quarantine isolation (1,224 anomalous records)
+│   ├── silver/                  # [EN] Silver Delta Lake tables
+│   ├── quarantine/              # [EN] Dead-Letter Quarantine isolation
 │   └── gold/                    # [EN] Production Gold Marts & SLA alert logs
 ├── docs/                        # [EN] Hackathon submission deliverables (Diagrams, Demo script, Deck)
 │   ├── architecture_diagram.svg # [EN] 1920x1080 High-resolution vector architecture diagram
@@ -95,7 +95,7 @@ exl-migration-factory/
 │   ├── responsible_ai_note.md   # [EN] Single-page Responsible AI note
 │   ├── engine.md                # [EN] Migration engine, dashboard and settings
 │   ├── ai_tools_declaration.md  # [EN] AI tools and existing code used (required by the organisers)
-│   └── deck_outline.md          # [EN] Slide copy and demo sequence
+│   └── demo_script.md           # [EN] 3-minute demo: what to click and what to say
 ├── infra/
 │   └── main.bicep               # [EN] Azure storage template for the layers (not deployed)
 ├── tests/                       # [EN] Automated test suites (Bronze, Silver, Reconciliation, Gold)
@@ -107,6 +107,9 @@ exl-migration-factory/
 ---
 
 ## 4. Medallion Lakehouse & Quarantine Architecture / 奖牌湖仓与隔离区架构
+
+The figures in this table (99.82%, 1,224 rows) were measured by the lakehouse owner on the full freMTPL2 files; CI runs on a small sample and does not reproduce them. The migrated jobs currently read the sample under `datasets/base/`, not the Silver tables: the two tracks meet at the Gold gate.
+本表中的数字（99.82%、1,224 行）由湖仓负责人在完整 freMTPL2 数据上测得；CI 使用小样本，不会重现这些数字。迁移后的作业目前读取 `datasets/base/` 下的样本，而不是 Silver 表：两条线在 Gold 门禁处汇合。
 
 | Tier / 分层 | Storage & Format / 存储格式 | Governance & Contract Rules / 治理规则与数据契约 | Owner / 负责人 |
 | :--- | :--- | :--- | :--- |

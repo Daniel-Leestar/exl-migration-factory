@@ -18,7 +18,8 @@ import pytest
 from cloud.gold_deploy import (
     evaluate_admission_gate,
     execute_gold_deployment,
-    ensure_default_status_store,
+    StatusStoreError,
+    load_status_store,
 )
 
 
@@ -136,3 +137,23 @@ def test_gold_deployment_pipeline_and_sla_alerts():
             assert actions["J00_mock"] == "DEPLOYED"
             assert actions["J09"] == "BLOCKED"
 
+
+def test_missing_or_broken_status_table_is_an_error():
+    """The gate must refuse to run without real job results; it never makes up a status table.
+    没有真实作业结果时门禁必须拒绝运行，绝不虚构状态表。
+    """
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        status_file = os.path.join(tmp_dir, "status_store.json")
+        with pytest.raises(StatusStoreError, match="engine export"):
+            load_status_store(status_file)
+        assert not os.path.exists(status_file)
+
+        with open(status_file, "w", encoding="utf-8") as f:
+            f.write("not json")
+        with pytest.raises(StatusStoreError, match="not valid JSON"):
+            load_status_store(status_file)
+
+        with open(status_file, "w", encoding="utf-8") as f:
+            json.dump({"metrics": {}}, f)
+        with pytest.raises(StatusStoreError, match="jobs"):
+            execute_gold_deployment(status_store_path=status_file, gold_root=os.path.join(tmp_dir, "gold"))
